@@ -1407,3 +1407,341 @@ def p_error(p):
 
 
 parser = yacc.yacc(debug=False, write_tables=False)
+
+
+# ------ SALIDA: TRADUCCION A DIRECCIONES Y REPRESENTACION INTERMEDIA --------
+
+# Operadores cuyos campos argL/argR/res son NUMEROS DE CUADRUPLO (saltos), no
+# direcciones de memoria. No deben traducirse a direcciones.
+SALTO_RES = {'gotomain', 'gotof', 'goto', 'gotot', 'gosub'}
+
+
+def _es_nombre_temporal(x):
+    return isinstance(x, str) and x in temp_addrs
+
+
+def resolver_operando(x, scope):
+    """Traduce un operando de quad (nombre/literal) a su direccion virtual.
+
+    - Temporales: se buscan en temp_addrs (su nombre ya es unico).
+    - Variables/parametros: se buscan en la tabla del scope del quad; si no,
+      en la tabla global (para el main).
+    - Constantes literales (int/float/str): se buscan en const_table.
+    - None o '_' -> -1 (campo vacio).
+    """
+    if x is None or x == '_':
+        return -1
+    # Temporal
+    if _es_nombre_temporal(x):
+        return temp_addrs[x]['addr']
+    # Nombre de funcion (su slot de retorno)
+    if isinstance(x, str) and x in func_dir and func_dir[x].get('is_function'):
+        return func_dir[x]['addr']
+    # Variable o parametro en el scope del quad
+    if isinstance(x, str):
+        entry = func_dir.get(scope)
+        if entry and x in entry['vars']:
+            return entry['vars'][x]['addr']
+        # Fallback: tabla global (programa)
+        gentry = func_dir.get(program_name)
+        if gentry and x in gentry['vars']:
+            return gentry['vars'][x]['addr']
+    # Constante literal: deducir su tipo por el valor de Python
+    if isinstance(x, bool):
+        return direccion_constante(x, 'int')
+    if isinstance(x, int):
+        return direccion_constante(x, 'int')
+    if isinstance(x, float):
+        return direccion_constante(x, 'float')
+    if isinstance(x, str) and x.startswith('"') and x.endswith('"'):
+        return direccion_constante(x, 'string')
+    # Cualquier otra cosa (no deberia ocurrir): se deja como -1.
+    return -1
+
+
+def traducir_quads():
+    """Devuelve la lista de quads en DIRECCIONES (para la VM).
+
+    Cada quad: [op, dirL, dirR, dirRes]. Los saltos conservan el numero de
+    cuadruplo en el campo correspondiente. Los campos vacios son -1.
+    """
+    out = []
+    for i, (op, aL, aR, res, rt) in enumerate(quads):
+        scope = quad_scope[i] if i < len(quad_scope) else program_name
+        if op == 'gotomain':
+            out.append([op, -1, -1, res if isinstance(res, int) else -1])
+        elif op in ('goto',):
+            out.append([op, -1, -1, res if isinstance(res, int) else -1])
+        elif op in ('gotof', 'gotot'):
+            dl = resolver_operando(aL, scope)
+            tgt = res if isinstance(res, int) else -1
+            out.append([op, dl, -1, tgt])
+        elif op == 'gosub':
+            # argL = nombre funcion (no se traduce a memoria), argR = temporal
+            # que recibe el retorno, res = quad de inicio.
+            dr = resolver_operando(aR, scope) if aR is not None else -1
+            start = res if isinstance(res, int) else -1
+            # Se guarda tambien la direccion del slot de retorno de la funcion.
+            faddr = func_dir[aL]['addr'] if aL in func_dir else -1
+            out.append([op, faddr, dr, start])
+        elif op == 'sub':
+            faddr = func_dir[aL]['addr'] if aL in func_dir else -1
+            out.append([op, faddr, -1, -1])
+        elif op == 'param':
+            dl = resolver_operando(aL, scope)
+            dres = resolver_operando(res, func_dir_scope_of_callee(i, res))
+            out.append([op, dl, -1, dres])
+        elif op in ('endfun', 'end', 'newline'):
+            out.append([op, -1, -1, -1])
+        elif op == 'print':
+            out.append([op, resolver_operando(aL, scope), -1, -1])
+        elif op == 'return':
+            out.append([op, resolver_operando(aL, scope), -1,
+                        resolver_operando(res, scope)])
+        else:
+            # Operaciones: =, +, -, *, /, u-, u+, relacionales.
+            dl = resolver_operando(aL, scope)
+            dr = resolver_operando(aR, scope)
+            dres = resolver_operando(res, scope)
+            out.append([op, dl, dr, dres])
+    return out
+
+
+def func_dir_scope_of_callee(quad_index, param_name):
+    """Para un quad 'param', el destino (res) es un parametro de la funcion que
+    se esta por llamar. Se busca hacia adelante el 'gosub' que cierra esta
+    llamada para saber a que funcion pertenece el parametro."""
+    for j in range(quad_index + 1, len(quads)):
+        if quads[j][0] == 'gosub':
+            funcname = quads[j][1]
+            if funcname in func_dir:
+                return funcname
+            break
+        if quads[j][0] == 'sub':
+            break
+    return program_name
+
+
+def fmt(v):
+    if v is None or v == '_':
+        return '-'
+    return str(v)
+
+
+# --- Encabezado de memoria (constantes, contadores, funciones) -------------
+
+def contar_memoria_global():
+    """Cuenta variables globales por tipo (las del scope del programa)."""
+    counts = {}
+    gentry = func_dir.get(program_name)
+    if gentry:
+        for v in gentry['vars'].values():
+            key = 'global_%s' % ('str' if v['type'] == 'string'
+                                 else v['type'])
+            counts[key] = counts.get(key, 0) + 1
+    # Las funciones tambien ocupan un slot global de su tipo de retorno.
+    for name, entry in func_dir.items():
+        if entry.get('is_function'):
+            key = 'global_%s' % ('str' if entry['return_type'] == 'string'
+                                 else entry['return_type'])
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def lineas_constantes():
+    """Lista de constantes: 'valor  direccion', ordenadas por direccion.
+
+    Se alinean en dos columnas de ancho fijo para que el archivo sea legible.
+    La VM lee con .split(), asi que los espacios no afectan la interpretacion.
+    """
+    items = sorted(const_table.values(), key=lambda c: c['addr'])
+    lines = []
+    for c in items:
+        v = str(c['value'])
+        # Para strings se imprime con comillas tal como estan.
+        lines.append("%-24s %d" % (v, c['addr']))
+    return lines
+
+
+def lineas_contadores_globales():
+    """Contadores de memoria global y de constantes (encabezado del programa)."""
+    g = contar_memoria_global()
+    lines = []
+    for region in ['global_int', 'global_float', 'global_str', 'global_void']:
+        lines.append("%-14s %d" % (region, g.get(region, 0)))
+    # Temporales del programa principal y constantes.
+    main_mem = func_dir.get(program_name, {}).get('mem', {})
+    for region in ['temp_int', 'temp_float', 'temp_bool']:
+        lines.append("%-14s %d" % (region, main_mem.get(region, 0)))
+    cte_counts = {'cte_int': 0, 'cte_float': 0, 'cte_str': 0}
+    for c in const_table.values():
+        key = 'cte_%s' % ('str' if c['type'] == 'string' else c['type'])
+        cte_counts[key] += 1
+    for region in ['cte_int', 'cte_float', 'cte_str']:
+        lines.append("%-14s %d" % (region, cte_counts[region]))
+    return lines
+
+
+def lineas_encabezado_funciones():
+    """Bloque por funcion: nombre, start_quad, tipo, params y memoria local."""
+    lines = []
+    for name, entry in func_dir.items():
+        if not entry.get('is_function'):
+            continue
+        n_params = len(entry['params'])
+        lines.append("func %s %d %s" % (name, entry['start_quad'],
+                                        entry['return_type']))
+        lines.append("params %d" % n_params)
+        mem = entry.get('mem', {})
+        for region in ['local_int', 'local_float', 'local_str',
+                       'temp_int', 'temp_float', 'temp_bool']:
+            lines.append("%-14s %d" % (region, mem.get(region, 0)))
+        lines.append("endfunc")
+    return lines
+
+
+# --- Construccion de los dos archivos de representacion intermedia ----------
+
+def ir_con_nombres():
+    """Representacion intermedia legible (con nombres) para depuracion."""
+    lines = []
+    lines.append("# Representacion intermedia (NOMBRES) - solo depuracion")
+    lines.append("# Constantes: valor  direccion")
+    for c in sorted(const_table.values(), key=lambda c: c['addr']):
+        lines.append("const\t%s\t%d" % (c['value'], c['addr']))
+    lines.append("# Cuadruplos")
+    header = "%-4s %-9s %-14s %-14s %-14s %-8s" % (
+        "#", "op", "argL", "argR", "res", "tipo")
+    lines.append(header)
+    for i, (op, aL, aR, res, rt) in enumerate(quads, start=1):
+        lines.append("%-4d %-9s %-14s %-14s %-14s %-8s" % (
+            i, op, fmt(aL), fmt(aR), fmt(res), fmt(rt)))
+    return lines
+
+
+def ir_con_direcciones():
+    """Representacion intermedia EN DIRECCIONES (la que ejecuta la VM).
+
+    Formato (estricto, por secciones, convencion de clase):
+      const         -> lista 'valor  direccion'
+      global        -> contadores de memoria global / temporal / constante
+      funcs         -> func ... endfunc por cada funcion
+      quads         -> cuadruplos en direcciones, un quad por linea:
+                       num op argL argR res
+    """
+    lines = []
+    lines.append("const")
+    for ln in lineas_constantes():
+        lines.append(ln)
+    lines.append("")
+    lines.append("global")
+    for ln in lineas_contadores_globales():
+        lines.append(ln)
+    lines.append("")
+    lines.append("funcs")
+    for ln in lineas_encabezado_funciones():
+        lines.append(ln)
+    lines.append("")
+    lines.append("quads")
+    tq = traducir_quads()
+    # Encabezado de columnas (comentado con # para que la VM lo ignore, ya que
+    # cualquier linea cuyos campos no sean numericos no es un cuadruplo valido).
+    lines.append("%-4s %-9s %-8s %-8s %-8s" % ("#", "op", "argL", "argR", "res"))
+    for i, q in enumerate(tq, start=1):
+        op = q[0]
+        aL, aR, res = q[1], q[2], q[3]
+        lines.append("%-4d %-9s %-8d %-8d %-8d" % (i, op, aL, aR, res))
+    return lines
+
+
+def imprimir_errores():
+    if lex_errors:
+        print("\n%d error(es) lexico(s):" % len(lex_errors))
+        for e in lex_errors:
+            print("  - " + e)
+    if parse_errors:
+        print("\n%d error(es) sintactico(s):" % len(parse_errors))
+        for e in parse_errors:
+            print("  - " + e)
+        if recovery_notes:
+            for nota in recovery_notes:
+                print(nota)
+    if semantic_errors:
+        print("\n%d error(es) semantico(s):" % len(semantic_errors))
+        for e in semantic_errors:
+            print("  - " + e)
+
+
+def reset_estado():
+    global source_text, program_name, goto_main_idx, temp_counter, current_line
+    lex_errors[:] = []
+    parse_errors[:] = []
+    recovery_notes[:] = []
+    semantic_errors[:] = []
+    func_dir.clear()
+    scope_stack[:] = []
+    operand_stack[:] = []
+    pila_saltos[:] = []
+    break_stack[:] = []
+    return_jumps_stack[:] = []
+    call_stack[:] = []
+    current_id_list[:] = []
+    quads[:] = []
+    quad_scope[:] = []
+    temp_counter = 0
+    program_name = None
+    goto_main_idx = None
+    source_text = ""
+    current_line = 0
+    reset_memoria()
+
+
+def compilar(codigo, base_salida="ir"):
+    """Compila el codigo fuente de Little Duck.
+
+    Si no hay errores, escribe dos archivos:
+      <base>-nombres.txt    (legible, depuracion)
+      <base>-direcciones.txt (en direcciones, lo ejecuta la VM)
+    Devuelve (ok, archivo_direcciones). Si hay errores de compilacion,
+    devuelve (False, None) tras imprimirlos con su numero de linea.
+    """
+    global source_text
+    reset_estado()
+    source_text = codigo
+    lexer.lineno = 1
+
+    try:
+        parser.parse(codigo, lexer=lexer, tracking=True)
+    except SyntaxError:
+        # Se aborto el parsing por exceso de errores (posible ciclo de
+        # recuperacion). Los errores ya estan registrados en parse_errors.
+        pass
+
+    hay_errores = bool(lex_errors or parse_errors or semantic_errors)
+    if hay_errores:
+        print("Errores de compilacion:")
+        imprimir_errores()
+        print("\nTotal: %d lexico(s) + %d sintactico(s) + %d semantico(s)"
+              % (len(lex_errors), len(parse_errors), len(semantic_errors)))
+        return (False, None)
+
+    # Si el analisis es valido NO se imprimen mensajes adicionales.
+    nombres = ir_con_nombres()
+    direcciones = ir_con_direcciones()
+
+    archivo_nombres = base_salida + "-nombres.txt"
+    archivo_dir = base_salida + "-direcciones.txt"
+    with open(archivo_nombres, "w") as f:
+        f.write("\n".join(nombres) + "\n")
+    with open(archivo_dir, "w") as f:
+        f.write("\n".join(direcciones) + "\n")
+
+    return (True, archivo_dir)
+
+
+if __name__ == '__main__':
+    # Modo de prueba directa del compilador (sin VM).
+    codigo = open("input.txt").read()
+    ok, archivo = compilar(codigo)
+    if ok:
+        print("Compilacion exitosa. IR en direcciones:", archivo)
