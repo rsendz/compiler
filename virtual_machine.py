@@ -290,3 +290,262 @@ class Memoria:
         cont = self._contenedor(addr)
         cont[addr] = valor
 
+
+# --- Interprete ------------------------------------------------------------
+
+class VM:
+    def __init__(self, programa):
+        self.prog = programa
+        self.mem = Memoria(programa.constantes, programa.global_counts)
+        self.ip = 0                 # apuntador de instruccion (indice 0-based)
+        # Pila de retorno: a que quad (1-based) volver tras un endfun/return.
+        self.return_stack = []
+        # Argumentos pendientes de la llamada en preparacion: lista de
+        # (valor, direccion_destino_en_callee).
+        self.pending_params = []
+        # Pila de slots de resultado: a donde copiar el retorno en el caller.
+        self.result_slot_stack = []
+        # Pila de slots globales de retorno de la funcion en curso (aL de gosub).
+        self.func_slot_stack = []
+        # Profundidad actual de la pila de llamadas (incluye el main).
+        self.depth = 1
+        self.salida = []            # lineas de salida del programa
+
+    def ejecutar(self):
+        quads = self.prog.quads
+        n = len(quads)
+        # El main (programa principal) es la base de la pila de llamadas. Sus
+        # temporales son locales a su frame; sus contadores estan en el
+        # encabezado global (temp_int/temp_float/temp_bool).
+        main_counts = {
+            'temp_int': self.prog.global_counts.get('temp_int', 0),
+            'temp_float': self.prog.global_counts.get('temp_float', 0),
+            'temp_bool': self.prog.global_counts.get('temp_bool', 0),
+        }
+        self.mem.push_frame(main_counts)
+        # El primer quad es gotomain: saltar al main.
+        # ip arranca en 0 (quad 1).
+        while self.ip < n:
+            op, aL, aR, res = quads[self.ip]
+            metodo = getattr(self, 'op_' + self._nombre_op(op), None)
+            if metodo is None:
+                raise RuntimeErrorVM("operador desconocido '%s'" % op,
+                                     self.ip + 1)
+            try:
+                salto = metodo(aL, aR, res)
+            except RuntimeErrorVM as e:
+                if e.quad_num is None:
+                    e.quad_num = self.ip + 1
+                raise
+            if salto is None:
+                self.ip += 1
+            else:
+                # salto es un numero de quad 1-based: convertir a indice.
+                self.ip = salto - 1
+
+    def _nombre_op(self, op):
+        """Mapea el simbolo del operador al sufijo del metodo op_*."""
+        tabla = {
+            '+': 'suma', '-': 'resta', '*': 'mult', '/': 'div',
+            '=': 'asigna',
+            '>': 'mayor', '<': 'menor', '>=': 'mayoreq', '<=': 'menoreq',
+            '==': 'igual', '!=': 'distinto',
+            'u-': 'umenos', 'u+': 'umas',
+            'gotomain': 'gotomain', 'goto': 'goto', 'gotof': 'gotof',
+            'gotot': 'gotot',
+            'sub': 'sub', 'param': 'param', 'gosub': 'gosub',
+            'return': 'return_', 'endfun': 'endfun',
+            'print': 'print_', 'newline': 'newline', 'end': 'end',
+        }
+        return tabla.get(op, op)
+
+    # ---- Operaciones aritmeticas -----------------------------------------
+    def _bin(self, aL, aR):
+        return self.mem.leer(aL), self.mem.leer(aR)
+
+    def op_suma(self, aL, aR, res):
+        a, b = self._bin(aL, aR)
+        self.mem.escribir(res, a + b)
+
+    def op_resta(self, aL, aR, res):
+        a, b = self._bin(aL, aR)
+        self.mem.escribir(res, a - b)
+
+    def op_mult(self, aL, aR, res):
+        a, b = self._bin(aL, aR)
+        self.mem.escribir(res, a * b)
+
+    def op_div(self, aL, aR, res):
+        a, b = self._bin(aL, aR)
+        if b == 0:
+            raise RuntimeErrorVM("division entre cero", self.ip + 1)
+        # La division entre numericos produce float (convencion del lenguaje).
+        self.mem.escribir(res, a / b)
+
+    def op_umenos(self, aL, aR, res):
+        self.mem.escribir(res, -self.mem.leer(aL))
+
+    def op_umas(self, aL, aR, res):
+        self.mem.escribir(res, +self.mem.leer(aL))
+
+    # ---- Relacionales ----------------------------------------------------
+    def op_mayor(self, aL, aR, res):
+        a, b = self._bin(aL, aR); self.mem.escribir(res, a > b)
+
+    def op_menor(self, aL, aR, res):
+        a, b = self._bin(aL, aR); self.mem.escribir(res, a < b)
+
+    def op_mayoreq(self, aL, aR, res):
+        a, b = self._bin(aL, aR); self.mem.escribir(res, a >= b)
+
+    def op_menoreq(self, aL, aR, res):
+        a, b = self._bin(aL, aR); self.mem.escribir(res, a <= b)
+
+    def op_igual(self, aL, aR, res):
+        a, b = self._bin(aL, aR); self.mem.escribir(res, a == b)
+
+    def op_distinto(self, aL, aR, res):
+        a, b = self._bin(aL, aR); self.mem.escribir(res, a != b)
+
+    # ---- Asignacion ------------------------------------------------------
+    def op_asigna(self, aL, aR, res):
+        self.mem.escribir(res, self.mem.leer(aL))
+
+    # ---- Saltos ----------------------------------------------------------
+    def op_gotomain(self, aL, aR, res):
+        return res   # salta al quad del main
+
+    def op_goto(self, aL, aR, res):
+        return res
+
+    def op_gotof(self, aL, aR, res):
+        if not self.mem.leer(aL):
+            return res
+        return None
+
+    def op_gotot(self, aL, aR, res):
+        if self.mem.leer(aL):
+            return res
+        return None
+
+    # ---- Llamadas a funcion ----------------------------------------------
+    def op_sub(self, aL, aR, res):
+        # Señaliza el inicio de una llamada. Se prepara un diccionario de
+        # parametros pendientes que los 'param' iran llenando (direccion->valor).
+        self.pending_params.append({})
+
+    def op_param(self, aL, aR, res):
+        # Copia el valor del argumento (aL, en el frame del caller) al slot del
+        # parametro (res), que se guarda en el conjunto de params pendientes.
+        valor = self.mem.leer(aL)
+        self.pending_params[-1][res] = valor
+
+    def op_gosub(self, aL, aR, res):
+        # aL = direccion del slot de retorno de la funcion (global)
+        # aR = direccion del temporal (en el caller) que recibira el resultado
+        # res = quad de inicio de la funcion
+        if self.depth + 1 > RECURSION_LIMIT:
+            raise RuntimeErrorVM(
+                "se excedio la profundidad maxima de recursion (%d)"
+                % RECURSION_LIMIT, self.ip + 1)
+        params = self.pending_params.pop()
+        # Construir el activation record de la funcion llamada con su memoria
+        # local/temporal reservada (segun el encabezado), luego copiar los
+        # parametros recibidos sobre sus celdas.
+        funcname = self.prog.func_by_start.get(res)
+        local_counts = self.prog.funcs[funcname]['mem'] if funcname else {}
+        self.mem.push_frame(local_counts)
+        for addr, valor in params.items():
+            self.mem.frames[-1]['celdas'][addr] = valor
+        # Guardar a donde regresar, el slot de resultado y el slot global de la
+        # funcion. self.ip es indice 0-based del gosub; el quad siguiente en
+        # 1-based es (self.ip + 1) + 1 = self.ip + 2.
+        self.return_stack.append(self.ip + 2)
+        self.result_slot_stack.append(aR)
+        self.func_slot_stack.append(aL)
+        self.depth += 1
+        return res   # salta al primer quad de la funcion
+
+    def op_return_(self, aL, aR, res):
+        # Copia el valor de retorno (aL) al slot global de la funcion (res).
+        valor = self.mem.leer(aL)
+        self.mem.escribir(res, valor)
+        # El goto que sigue al return lleva al endfun.
+        return None
+
+    def op_endfun(self, aL, aR, res):
+        # Fin de la funcion: se destruye el frame y se regresa al caller.
+        self.mem.pop_frame()
+        self.depth -= 1
+        destino = self.return_stack.pop()
+        result_slot = self.result_slot_stack.pop()
+        func_slot = self.func_slot_stack.pop()
+        # Copiar el valor de retorno (que quedo en el slot global de la funcion)
+        # al temporal del caller, si la llamada esperaba un resultado.
+        if (result_slot is not None and result_slot != -1
+                and func_slot in self.mem.glob):
+            self.mem.escribir(result_slot, self.mem.glob[func_slot])
+        return destino
+
+    # ---- Impresion -------------------------------------------------------
+    def op_print_(self, aL, aR, res):
+        valor = self.mem.leer(aL)
+        self._emitir(self._fmt_valor(valor), salto=False)
+
+    def op_newline(self, aL, aR, res):
+        self._emitir("", salto=True)
+
+    def _fmt_valor(self, v):
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, float):
+            # Imprime sin ceros sobrantes pero conservando el punto si aplica.
+            return repr(v)
+        return str(v)
+
+    def _emitir(self, texto, salto):
+        if salto:
+            # Cierra la linea actual.
+            if self.salida and not self.salida[-1].endswith('\n'):
+                self.salida[-1] = self.salida[-1] + '\n'
+            else:
+                self.salida.append('\n')
+        else:
+            if self.salida and not self.salida[-1].endswith('\n'):
+                self.salida[-1] = self.salida[-1] + texto
+            else:
+                self.salida.append(texto)
+
+    # ---- Fin -------------------------------------------------------------
+    def op_end(self, aL, aR, res):
+        self.ip = len(self.prog.quads)   # termina el bucle
+        return None
+
+    def texto_salida(self):
+        return ''.join(self.salida)
+
+if __name__ == '__main__':
+    # Modo independiente: ejecuta directamente un archivo de representacion
+    # intermedia en direcciones (por defecto "ir-direcciones.txt", o el nombre
+    # dado como primer argumento de la terminal).
+    nombre = sys.argv[1] if len(sys.argv) > 1 else "ir-direcciones.txt"
+    try:
+        programa = cargar_programa(nombre)
+        maquina = VM(programa)
+        maquina.ejecutar()
+        sys.stdout.write(maquina.texto_salida())
+    except OSError as e:
+        print("No se pudo abrir el archivo de IR '%s': %s" % (nombre, e))
+        sys.exit(1)
+    except RuntimeErrorVM as e:
+        salida = maquina.texto_salida() if 'maquina' in dir() else ""
+        if salida:
+            sys.stdout.write(salida)
+            if not salida.endswith('\n'):
+                sys.stdout.write('\n')
+        if e.quad_num is not None:
+            print("Error en tiempo de ejecucion (cuadruplo %d): %s"
+                  % (e.quad_num, e.mensaje))
+        else:
+            print("Error en tiempo de ejecucion: %s" % e.mensaje)
+        sys.exit(1)
