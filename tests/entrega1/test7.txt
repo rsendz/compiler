@@ -1,0 +1,24 @@
+# Caso 7: multiples errores con recuperacion
+# 4 errores deliberados en lineas distintas
+
+program caso7;
+
+var x, y : int;
+
+main {
+    x = 10;
+
+    # Error 1: asignacion sin punto y coma
+    y = 20
+
+    # Error 2: caracter no reconocido
+    x = x & y;
+
+    # Error 3: if sin parentesis
+    if x > 5 {
+        print("hola");
+    };
+
+    # Sentencia correcta despues de errores
+    print("fin del programa");
+} end

@@ -1,0 +1,17 @@
+# Caso 6: relacional encadenado rechazado
+# EXPRESION solo admite un RelOp, asi que a < b < c es invalido
+
+program caso6;
+
+var a, b, c : int;
+
+main {
+    a = 1;
+    b = 2;
+    c = 3;
+
+    # Esto debe fallar: doble relacional
+    if (a < b < c) {
+        print("esto no deberia compilar");
+    };
+} end

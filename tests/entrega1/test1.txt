@@ -1,0 +1,46 @@
+# Caso 1: programa completo con todas las estructuras
+# Variables globales, funciones void y tipadas, return,
+# asignaciones, aritmetica, if/else, do/while, print,
+# llamadas a funcion como sentencia y dentro de expresiones.
+
+program caso1;
+
+var x, y, z : int;
+resultado : float;
+mensaje : string;
+
+int suma(a : int, b : int) [
+    {
+        return a + b;
+    }
+];
+
+void imprimirDoble(n : int) [
+    var temp : int;
+    {
+        temp = n * 2;
+        print("El doble es: ", temp);
+        return;
+    }
+];
+
+main {
+    x = 10;
+    y = 20;
+    z = suma(x, y);
+    resultado = suma(x, y) * 2.5 + 1.0;
+
+    if (z > 15) {
+        print("z es mayor a 15: ", z);
+    } else {
+        print("z no es mayor a 15");
+    };
+
+    x = 0;
+    do {
+        x = x + 1;
+        imprimirDoble(x);
+    } while (x < 5);
+
+    print("Resultado final: ", resultado);
+} end

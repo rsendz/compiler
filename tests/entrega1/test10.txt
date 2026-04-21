@@ -1,0 +1,19 @@
+# Caso 10: if sin parentesis aislado
+# Un solo error para mostrar recuperacion limpia
+
+program caso10;
+
+var x : int;
+
+main {
+    x = 10;
+
+    # Error: falta parentesis en la condicion del if
+    if x > 5 {
+        print("mayor");
+    };
+
+    # El parser debe recuperarse y aceptar lo siguiente
+    x = x + 1;
+    print("x ahora vale: ", x);
+} end

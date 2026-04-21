@@ -1,0 +1,21 @@
+# Caso 9: identificadores invalidos
+# t_BAD_IDENTIFIER debe atrapar estos como errores lexicos
+
+program caso9;
+
+var x : int;
+
+main {
+    # Error lexico: empieza con digito
+    x = 12abc + 5;
+
+    # Error lexico: empieza con guion bajo
+    x = _var + 10;
+
+    # Error lexico: otro identificador con digito al inicio
+    x = 3total;
+
+    # Sentencia correcta despues de errores
+    x = 42;
+    print("x = ", x);
+} end
