@@ -1,0 +1,8 @@
+program sininit;
+var a, b : int;
+
+main {
+    a = b + 1;
+    print(a);
+}
+end

@@ -1,0 +1,11 @@
+program div_cero;
+var a, b : int;
+    r : float;
+main
+{   a = 10;
+    b = 0;
+    print("voy a dividir");
+    r = a / b;
+    print("resultado = ", r);
+}
+end

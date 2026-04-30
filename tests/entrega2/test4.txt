@@ -1,0 +1,12 @@
+program scopes;
+var x, x : int;
+
+int f (a : int, a : int) [
+    { return a; }
+];
+
+main {
+    y = 5;
+    x = a;
+}
+end

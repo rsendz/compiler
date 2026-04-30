@@ -1,0 +1,22 @@
+program control;
+var i, suma : int;
+main
+{   suma = 0;
+    i = 1;
+    do {
+        suma = suma + i;
+        if (i == 3)
+        {   print("llegue a 3, suma parcial = ", suma);
+        };
+        i = i + 1;
+    } while ( i <= 5 );
+    print("suma final 1..5 = ", suma);
+
+    if ( suma > 10 )
+    {   print("la suma es mayor a 10");
+    }
+    else
+    {   print("la suma no es mayor a 10");
+    };
+}
+end

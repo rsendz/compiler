@@ -1,0 +1,40 @@
+program demo;
+var x, y : int;
+    r : float;
+    msg : string;
+
+int suma (a : int, b : int) [
+    {
+        return a + b;
+    }
+];
+
+void saluda (n : string) [
+    {
+        print("hola ", n);
+    }
+];
+
+main {
+    x = 3 + 5 * 2;
+    y = suma(x, 10);
+    r = x / 2;
+    msg = "resultado";
+
+    if (x > y) {
+        print("x mayor");
+    } else {
+        print("y mayor o igual");
+    };
+
+    do {
+        x = x - 1;
+        if (x == 1) {
+            break;
+        };
+    } while (x > 0);
+
+    saluda(msg);
+    print("fin");
+}
+end

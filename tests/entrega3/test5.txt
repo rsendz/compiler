@@ -1,0 +1,12 @@
+program tipos_mal;
+var n : int;
+    s : string;
+    f : float;
+main
+{   s = "hola";
+    n = s + 1;
+    f = 3.5;
+    n = f;
+    n = s / 2;
+}
+end

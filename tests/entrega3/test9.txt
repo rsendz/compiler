@@ -1,0 +1,13 @@
+program recursion_infinita;
+var r : int;
+
+int cuenta ( n : int )
+[
+   {  return n + cuenta(n + 1); }
+];
+
+main
+{   r = cuenta(0);
+    print("nunca llego aqui = ", r);
+}
+end
