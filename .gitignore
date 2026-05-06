@@ -2,8 +2,6 @@ __pycache__/
 parser.out
 parsetab.py
 venv/
-prueba.txt
-prueba-ir.txt
-ir-direcciones.txt
-ir-nombres.txt
 input.txt
+ir-names.txt
+ir-addresses.txt
