@@ -1,0 +1,239 @@
+"""Turning quadruples into the two intermediate-representation files.
+
+The parser leaves quadruples whose operands are still names. This module
+resolves each name to a virtual address and writes two files:
+
+``<base>-names.txt``
+    the same quadruples with readable names, meant for inspection only.
+``<base>-addresses.txt``
+    addresses only, preceded by the memory header. This is what the virtual
+    machine loads and runs.
+"""
+
+from .memory import region_name
+
+# Sections of the address file, in the order they are written.
+SECTIONS = ('const', 'global', 'funcs', 'quads')
+
+GLOBAL_REGIONS = ('global_int', 'global_float', 'global_str', 'global_void')
+TEMP_REGIONS = ('temp_int', 'temp_float', 'temp_bool')
+CONST_REGIONS = ('cte_int', 'cte_float', 'cte_str')
+LOCAL_REGIONS = ('local_int', 'local_float', 'local_str')
+
+EMPTY_FIELD = -1
+
+
+class IntermediateCode:
+    """Renders the quadruples of a finished compilation."""
+
+    def __init__(self, context):
+        self.context = context
+
+    # -- Operand resolution ------------------------------------------------
+    def resolve(self, operand, scope):
+        """Translate a quadruple operand into its virtual address.
+
+        Temporaries and constants have their own tables; variables and
+        parameters are looked up in the scope the quadruple was emitted in.
+        An empty field resolves to -1.
+        """
+        context = self.context
+        if operand is None or operand == '_':
+            return EMPTY_FIELD
+
+        if context.memory.is_temporary(operand):
+            return context.memory.address_of_temporary(operand)
+
+        if isinstance(operand, str):
+            # A function name stands for its return slot.
+            if context.functions.is_function(operand):
+                return context.functions.get(operand).address
+            entry = context.functions.get(scope)
+            if entry is not None and operand in entry.variables:
+                return entry.variables[operand].address
+            program = context.functions.program_entry
+            if program is not None and operand in program.variables:
+                return program.variables[operand].address
+
+        # Anything left is a literal; its type follows from the Python value.
+        if isinstance(operand, bool) or isinstance(operand, int):
+            return context.memory.constant(operand, 'int')
+        if isinstance(operand, float):
+            return context.memory.constant(operand, 'float')
+        if isinstance(operand, str) and operand.startswith('"') \
+                and operand.endswith('"'):
+            return context.memory.constant(operand, 'string')
+        return EMPTY_FIELD
+
+    def _callee_of_param(self, index):
+        """Find which function a ``param`` quadruple is filling in.
+
+        The destination of a ``param`` is a parameter of the function that is
+        about to be called, so the enclosing ``gosub`` says which scope to look
+        the parameter up in.
+        """
+        quads = self.context.quads
+        for position in range(index + 1, len(quads)):
+            operator = quads[position].operator
+            if operator == 'gosub':
+                if self.context.functions.is_function(quads[position].left):
+                    return quads[position].left
+                break
+            if operator == 'sub':
+                break
+        return self.context.functions.program_name
+
+    def to_addresses(self):
+        """Return the quadruples as ``[operator, left, right, result]`` rows.
+
+        Jump operators keep a quadruple number in the field that holds their
+        destination; every other field is a virtual address.
+        """
+        rows = []
+        for index, quad in enumerate(self.context.quads):
+            rows.append(self._translate(index, quad))
+        return rows
+
+    def _translate(self, index, quad):
+        operator, scope = quad.operator, quad.scope
+        target = quad.result if isinstance(quad.result, int) else EMPTY_FIELD
+
+        if operator in ('gotomain', 'goto'):
+            return [operator, EMPTY_FIELD, EMPTY_FIELD, target]
+        if operator in ('gotof', 'gotot'):
+            return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
+                    target]
+        if operator == 'gosub':
+            # left: the callee's return slot; right: the caller's temporary
+            # that receives the value; result: the quadruple to jump to.
+            entry = self.context.functions.get(quad.left)
+            return [operator,
+                    entry.address if entry else EMPTY_FIELD,
+                    self.resolve(quad.right, scope)
+                    if quad.right is not None else EMPTY_FIELD,
+                    target]
+        if operator == 'sub':
+            entry = self.context.functions.get(quad.left)
+            return [operator, entry.address if entry else EMPTY_FIELD,
+                    EMPTY_FIELD, EMPTY_FIELD]
+        if operator == 'param':
+            return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
+                    self.resolve(quad.result, self._callee_of_param(index))]
+        if operator in ('endfun', 'end', 'newline'):
+            return [operator, EMPTY_FIELD, EMPTY_FIELD, EMPTY_FIELD]
+        if operator == 'print':
+            return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
+                    EMPTY_FIELD]
+        if operator == 'return':
+            return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
+                    self.resolve(quad.result, scope)]
+        # Assignment, arithmetic, unary and relational operators.
+        return [operator,
+                self.resolve(quad.left, scope),
+                self.resolve(quad.right, scope),
+                self.resolve(quad.result, scope)]
+
+    # -- Memory header -----------------------------------------------------
+    def _global_counts(self):
+        """How many global slots each type needs.
+
+        Global variables are counted from the program's table; each function
+        adds one more slot of its return type for the value it hands back.
+        """
+        counts = {}
+        for variable in self.context.functions.global_variables().values():
+            region = region_name('global', variable.type)
+            counts[region] = counts.get(region, 0) + 1
+        for entry in self.context.functions.functions():
+            region = region_name('global', entry.return_type)
+            counts[region] = counts.get(region, 0) + 1
+        return counts
+
+    def _constant_lines(self):
+        """One ``value  address`` line per constant, ordered by address.
+
+        The columns are padded for readability; the loader splits on
+        whitespace, so the padding is harmless.
+        """
+        return ["%-24s %d" % (constant['value'], constant['address'])
+                for constant in self.context.memory.sorted_constants()]
+
+    def _global_lines(self):
+        """Global, main-program temporary and constant slot counts."""
+        counts = self._global_counts()
+        lines = ["%-14s %d" % (region, counts.get(region, 0))
+                 for region in GLOBAL_REGIONS]
+        program = self.context.functions.program_entry
+        program_memory = program.memory if program else {}
+        lines += ["%-14s %d" % (region, program_memory.get(region, 0))
+                  for region in TEMP_REGIONS]
+        constant_counts = self.context.memory.constant_counts()
+        lines += ["%-14s %d" % (region, constant_counts[region])
+                  for region in CONST_REGIONS]
+        return lines
+
+    def _function_lines(self):
+        """One block per function: signature, arity and local memory needs."""
+        lines = []
+        for entry in self.context.functions.functions():
+            lines.append("func %s %d %s"
+                         % (entry.name, entry.start_quad, entry.return_type))
+            lines.append("params %d" % len(entry.parameters))
+            lines += ["%-14s %d" % (region, entry.memory.get(region, 0))
+                      for region in LOCAL_REGIONS + TEMP_REGIONS]
+            lines.append("endfunc")
+        return lines
+
+    # -- Rendering ---------------------------------------------------------
+    def as_names(self):
+        """The readable listing: quadruples with names, for inspection."""
+        lines = ["# Intermediate representation (names) - for inspection only",
+                 "# Constants: value  address"]
+        for constant in self.context.memory.sorted_constants():
+            lines.append("const\t%s\t%d"
+                         % (constant['value'], constant['address']))
+        lines.append("# Quadruples")
+        lines.append("%-4s %-9s %-14s %-14s %-14s %-8s"
+                     % ("#", "op", "left", "right", "result", "type"))
+        for number, quad in enumerate(self.context.quads, start=1):
+            lines.append("%-4d %-9s %-14s %-14s %-14s %-8s"
+                         % (number, quad.operator, _field(quad.left),
+                            _field(quad.right), _field(quad.result),
+                            _field(quad.result_type)))
+        return lines
+
+    def as_addresses(self):
+        """The executable listing: memory header plus quadruples in addresses."""
+        lines = ["const"]
+        lines += self._constant_lines()
+        lines += ["", "global"]
+        lines += self._global_lines()
+        lines += ["", "funcs"]
+        lines += self._function_lines()
+        lines += ["", "quads"]
+        # A column header the loader skips, since its first field is not a
+        # quadruple number.
+        lines.append("%-4s %-9s %-8s %-8s %-8s"
+                     % ("#", "op", "left", "right", "result"))
+        for number, row in enumerate(self.to_addresses(), start=1):
+            lines.append("%-4d %-9s %-8d %-8d %-8d"
+                         % (number, row[0], row[1], row[2], row[3]))
+        return lines
+
+    def write(self, base_name):
+        """Write both files and return the path of the executable one."""
+        names_path = base_name + "-names.txt"
+        addresses_path = base_name + "-addresses.txt"
+        _write_lines(names_path, self.as_names())
+        _write_lines(addresses_path, self.as_addresses())
+        return addresses_path
+
+
+def _field(value):
+    """Render an empty quadruple field as a dash."""
+    return '-' if value is None or value == '_' else str(value)
+
+
+def _write_lines(path, lines):
+    with open(path, 'w') as handle:
+        handle.write("\n".join(lines) + "\n")
