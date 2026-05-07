@@ -1,0 +1,20 @@
+# Calls and returns that do not match the declared signatures.
+
+program invalidCalls;
+var x : int;
+
+int g (a : int) [
+    { return "text"; }
+];
+
+void h () [
+    { return 9; }
+];
+
+main {
+    g(1, 2);
+    x = g("hello");
+    x = h();
+    missing(1);
+}
+end

@@ -1,0 +1,20 @@
+# Lexical errors: identifiers that do not start with a letter.
+
+program invalidIdentifiers;
+
+var x : int;
+
+main {
+    # Starts with a digit
+    x = 12abc + 5;
+
+    # Starts with an underscore
+    x = _var + 10;
+
+    # Another name beginning with a digit
+    x = 3total;
+
+    # A correct statement after the errors, to show the lexer keeps going
+    x = 42;
+    print("x = ", x);
+} end

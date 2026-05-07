@@ -1,0 +1,14 @@
+# Operations and assignments the semantic cube rejects.
+
+program typeMismatch;
+var n : int;
+    s : string;
+    f : float;
+main
+{   s = "hello";
+    n = s + 1;
+    f = 3.5;
+    n = f;
+    n = s / 2;
+}
+end

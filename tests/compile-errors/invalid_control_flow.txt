@@ -1,0 +1,17 @@
+# Non-boolean conditions, and 'break' and 'return' used outside the constructs
+# they belong to.
+
+program invalidControlFlow;
+var x : int;
+
+main {
+    if (x + 1) {
+        print("not a boolean");
+    };
+    do {
+        x = x - 1;
+    } while (x);
+    break;
+    return 5;
+}
+end

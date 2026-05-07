@@ -1,0 +1,17 @@
+# A single syntax error: the condition of an 'if' without parentheses.
+# Everything after it should still be parsed.
+
+program missingParentheses;
+
+var x : int;
+
+main {
+    x = 10;
+
+    if x > 5 {
+        print("greater");
+    };
+
+    x = x + 1;
+    print("x is now: ", x);
+} end

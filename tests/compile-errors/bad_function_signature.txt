@@ -1,0 +1,23 @@
+# A malformed function signature: the parameters have no type.
+
+program badFunctionSignature;
+
+var x : int;
+
+int broken(a, b) [
+    {
+        return a + b;
+    }
+];
+
+# A well-formed function after the error
+void fine() [
+    {
+        print("this function is fine");
+    }
+];
+
+main {
+    fine();
+    print("program ends");
+} end

@@ -1,0 +1,16 @@
+# An expression admits at most one relational operator, so 'a < b < c' is not
+# valid.
+
+program chainedRelational;
+
+var a, b, c : int;
+
+main {
+    a = 1;
+    b = 2;
+    c = 3;
+
+    if (a < b < c) {
+        print("this should not compile");
+    };
+} end

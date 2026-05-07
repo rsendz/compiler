@@ -1,0 +1,23 @@
+# Several deliberate errors on different lines, to exercise error recovery.
+
+program multipleSyntaxErrors;
+
+var x, y : int;
+
+main {
+    x = 10;
+
+    # Missing semicolon
+    y = 20
+
+    # Unrecognized character
+    x = x & y;
+
+    # 'if' without parentheses
+    if x > 5 {
+        print("hello");
+    };
+
+    # A correct statement after the errors
+    print("end of program");
+} end
