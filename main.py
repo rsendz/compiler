@@ -1,67 +1,71 @@
-"""
-Little Duck - Entrega 3: Integrador principal
+"""Command-line entry point: compile a Little Duck program and run it.
 
-Punto de entrada unico de la entrega. Abre automaticamente "input.txt"
-(o, alternativamente, un nombre de archivo dado por la terminal), compila el
-codigo fuente (lexico, sintaxis, semantica y generacion de representacion
-intermedia) y, si no hubo errores de compilacion, ejecuta la representacion
-intermedia con la maquina virtual.
+    python main.py [source-file] [--ir-base NAME]
 
-Salida:
-  - Si hay errores de compilacion: se imprimen con su numero de linea y se
-    aborta (no se ejecuta nada mas).
-  - Si la compilacion es valida: NO se imprimen mensajes adicionales; se
-    escriben los dos archivos de representacion intermedia (uno con nombres
-    para depuracion y uno en direcciones para la VM) y se ejecuta el programa,
-    mostrando su salida.
-  - Si hay un error en tiempo de ejecucion: se reporta y se aborta.
+Reads the given source file (``input.txt`` by default), compiles it and, if
+there were no errors, executes the intermediate representation on the virtual
+machine.
+
+Exit status is 0 when the program ran to completion, and 1 when compilation
+failed or the program hit a runtime error.
 """
 
+import argparse
 import sys
 
-import compiler
-import virtual_machine as vm
+from littleduck import (VirtualMachine, VMRuntimeError, compile_file,
+                        load_program)
+from littleduck.compiler import DEFAULT_OUTPUT_BASE
+
+DEFAULT_SOURCE = "input.txt"
 
 
-def main():
-    # Nombre de archivo: por defecto "input.txt"; o el primer argumento.
-    nombre = sys.argv[1] if len(sys.argv) > 1 else "input.txt"
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser(
+        prog="main.py",
+        description="Compile a Little Duck program and run it.")
+    parser.add_argument("source", nargs="?", default=DEFAULT_SOURCE,
+                        help="source file to compile (default: %(default)s)")
+    parser.add_argument("--ir-base", default=DEFAULT_OUTPUT_BASE,
+                        metavar="NAME",
+                        help="base name of the generated intermediate "
+                             "representation files (default: %(default)s)")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    arguments = parse_arguments(argv)
 
     try:
-        codigo = open(nombre).read()
-    except OSError as e:
-        print("No se pudo abrir el archivo de entrada '%s': %s" % (nombre, e))
+        result = compile_file(arguments.source, arguments.ir_base)
+    except OSError as error:
+        print("Could not open the source file '%s': %s"
+              % (arguments.source, error))
         return 1
 
-    # Fase 1: compilacion. base_salida controla los nombres de los .txt.
-    ok, archivo_dir = compiler.compilar(codigo, base_salida="ir")
-    if not ok:
-        # Los errores de compilacion ya se imprimieron, con su numero de linea.
+    if not result.ok:
+        result.print_errors()
         return 1
 
-    # Fase 2: ejecucion en la maquina virtual (programa independiente).
+    machine = VirtualMachine(load_program(result.ir_path))
     try:
-        programa = vm.cargar_programa(archivo_dir)
-        maquina = vm.VM(programa)
-        maquina.ejecutar()
-    except vm.RuntimeErrorVM as e:
-        # Error en tiempo de ejecucion: se reporta y se aborta.
-        # Si ya se habia impreso algo del programa, se vuelca antes del error.
-        salida_parcial = maquina.texto_salida() if 'maquina' in dir() else ""
-        if salida_parcial:
-            sys.stdout.write(salida_parcial)
-            if not salida_parcial.endswith('\n'):
-                sys.stdout.write('\n')
-        if e.quad_num is not None:
-            print("Error en tiempo de ejecucion (cuadruplo %d): %s"
-                  % (e.quad_num, e.mensaje))
-        else:
-            print("Error en tiempo de ejecucion: %s" % e.mensaje)
+        machine.run()
+    except VMRuntimeError as error:
+        # Whatever the program printed before the fault is still its output.
+        _write_output(machine.output_text(), end_with_newline=True)
+        print(error.describe())
         return 1
 
-    # Programa terminado correctamente: mostrar su salida.
-    sys.stdout.write(maquina.texto_salida())
+    _write_output(machine.output_text())
     return 0
+
+
+def _write_output(text, end_with_newline=False):
+    if not text:
+        return
+    sys.stdout.write(text)
+    if end_with_newline and not text.endswith('\n'):
+        sys.stdout.write('\n')
 
 
 if __name__ == '__main__':
