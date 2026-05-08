@@ -1,0 +1,16 @@
+# The recursion has no base case, so the machine stops it when the call stack
+# reaches its limit.
+
+program runawayRecursion;
+var r : int;
+
+int count ( n : int )
+[
+   {  return n + count(n + 1); }
+];
+
+main
+{   r = count(0);
+    print("never reached = ", r);
+}
+end

@@ -1,0 +1,14 @@
+# The program compiles cleanly; the division fails while it runs. Whatever was
+# printed before the fault is still shown.
+
+program divisionByZero;
+var a, b : int;
+    r : float;
+main
+{   a = 10;
+    b = 0;
+    print("about to divide");
+    r = a / b;
+    print("result = ", r);
+}
+end
