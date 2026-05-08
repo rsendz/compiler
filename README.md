@@ -1,138 +1,231 @@
-# Little Duck Compiler (Entrega 2)
+# Little Duck
 
-Este proyecto implementa un compilador de Little Duck en Python usando PLY (lex/yacc). La entrega 2 agrega analisis semantico y generacion de representacion intermedia (cuadruplos) sobre el lexer y parser de la entrega 1.
+A compiler and virtual machine for **Little Duck**, a small imperative
+language, written in Python with [PLY](https://github.com/dabeaz/ply)
+(lex/yacc).
 
-## Diagrama de gramatica
+The compiler runs in a single pass: while the LR parser reduces the grammar it
+also fills the symbol table, checks types against a semantic cube, allocates
+virtual memory addresses and emits quadruples. The result is an intermediate
+representation written entirely in addresses, which a separate virtual machine
+loads and executes.
 
-<img width="1453" height="684" alt="image" src="https://github.com/user-attachments/assets/fd0d3d05-5bc6-42d8-9b6c-b2a695c19682" />
+## Grammar diagram
 
-## Resumen rapido
+<img width="1453" height="684" alt="Little Duck grammar diagram" src="https://github.com/user-attachments/assets/fd0d3d05-5bc6-42d8-9b6c-b2a695c19682" />
 
-- Entrada fija: `prueba.txt`.
-- Salida: imprime errores o la representacion intermedia + tabla de simbolos.
-- Archivo generado: `prueba-ir.txt`.
-- Parser LR con puntos neuralgicos para validar semantica y emitir cuadruplos.
+## Quick start
 
-## Estructura del compilador
-
-El flujo principal vive en `compiler.py` y esta separado en cuatro fases:
-
-1. **Lexico** (PLY lex)
-2. **Sintactico** (PLY yacc)
-3. **Semantico** (tabla de simbolos + cubo semantico)
-4. **IR** (cuadruplos)
-
-### 1) Lexico
-
-- Palabras reservadas: `program`, `var`, `main`, `end`, `int`, `float`, `string`, `void`, `if`, `else`, `do`, `while`, `print`, `return`, `break`.
-- Tokens para operadores y delimitadores: `+ - * / = < > <= >= == != , ; : { } [ ] ( )`.
-- Constantes: `CONST_INT`, `CONST_FLOAT`, `CONST_STR`.
-- Identificadores: `IDENTIFIER` (letras y numeros, sin iniciar con digito).
-
-Errores lexico importantes:
-
-- `t_BAD_IDENTIFIER` captura identificadores invalidos (ej. `12abc`, `_x`).
-- `t_error` reporta simbolos no reconocidos.
-
-### 2) Sintactico
-
-- Simbolo inicial: `Programa`.
-- La gramatica implementa precedencia de operadores con reglas `EXP`, `TERMINO`, `FACTOR`.
-- `EXPRESSION` soporta un operador relacional opcional para producir un `bool`.
-- Se definen reglas de recuperacion (por ejemplo `STATEMENT : error SEMICOL`).
-
-Estructura base del lenguaje (resumen):
-
-```
-Programa -> PROGRAM id ; OptVars FuncList MAIN Body END
-Body     -> { StmtList }
-StmtList -> StmtList STATEMENT | empty
-STATEMENT -> ASSIGN | CONDITION | CYCLE | F_Call | Print | Return_Statement | Break_Statement
+```bash
+pip install ply
 ```
 
-### 3) Semantica
+Compile and run a program:
 
-#### Directorio de funciones
+```bash
+python main.py tests/programs/arithmetic.txt
+```
 
-La tabla de simbolos se maneja con `func_dir`:
+With no arguments the entry point reads `input.txt`:
+
+```bash
+python main.py
+```
+
+Two files are written next to the program: `ir-names.txt`, a readable listing
+meant for inspection, and `ir-addresses.txt`, the address-only listing the
+machine executes. Use `--ir-base NAME` to change the base name.
+
+The virtual machine is a program of its own and can run a listing directly,
+without going through the compiler again:
+
+```bash
+python -m littleduck.vm ir-addresses.txt
+```
+
+The exit status is `0` when the program ran to completion, and `1` when
+compilation failed or the program hit a runtime error.
+
+## Project layout
 
 ```
-func_dir[nombre] = {
-  kind: 'program' | 'function',
-  is_function: bool,
-  return_type: 'void'|'int'|'float'|'string',
-  params: [(nombre, tipo), ...],
-  vars: { nombre: {type, scope, is_param} },
-  start_quad: int|None
+main.py                    command-line entry point: compile, then run
+littleduck/
+    lexer.py               tokens and the PLY lexer
+    grammar.py             the LR grammar with its semantic actions
+    semantics.py           the semantic cube
+    symbols.py             function directory and variable tables
+    memory.py              virtual memory layout and address allocation
+    quadruples.py          the intermediate representation
+    context.py             the state shared by every phase
+    ir.py                  address resolution and the output files
+    compiler.py            the compilation driver
+    errors.py              error collection and reporting
+    vm/
+        loader.py          reads an address listing back into memory
+        memory.py          simulated memory and activation records
+        machine.py         the interpreter
+        errors.py          runtime errors
+        __main__.py        `python -m littleduck.vm`
+tests/
+    programs/              programs that compile and run
+    compile-errors/        programs rejected at compile time
+    runtime-errors/        programs that compile but fail while running
+```
+
+## The language
+
+```
+program name;
+var a, b : int;
+    x : float;
+    s : string;
+
+int add(p : int, q : int) [
+    var scratch : int;
+    {
+        scratch = p + q;
+        return scratch;
+    }
+];
+
+main {
+    a = (2 + 3) * 4;
+    x = a / 2;
+
+    if (x >= 1.0) {
+        print("x is ", x);
+    } else {
+        print("x is small");
+    };
+
+    do {
+        a = a - 1;
+        if (a == 5) { break; };
+    } while (a > 0);
+
+    b = add(a, 3);
 }
+end
 ```
 
-#### Manejo de scopes
+Types are `int`, `float` and `string`; functions may also be `void`. Function
+bodies are delimited by `[ ]`, blocks by `{ }`, and every statement — including
+`if` and `do/while` — ends with a semicolon. Comments start with `#`.
 
-- `program_name` guarda el scope global.
-- `scope_stack` se usa para alternar entre global y funciones.
-- `lookup_var` busca primero en el scope actual y luego en el global.
+## How it works
 
-#### Cubo semantico
+### 1. Lexical analysis
 
-- `build_cube()` crea la matriz de compatibilidad `CUBE[izq][der][op]`.
-- Reglas clave:
-  - Aritmeticos `+ - *` entre `int/float`.
-  - Division siempre produce `float`.
-  - Comparaciones producen `bool`.
-  - Asignacion permite `float = int`, pero no `int = float`.
+Reserved words: `program`, `var`, `main`, `end`, `int`, `float`, `string`,
+`void`, `if`, `else`, `do`, `while`, `print`, `return`, `break`.
 
-#### Pila de operandos
+Operators and delimiters: `+ - * / = < > <= >= == != , ; : { } [ ] ( )`.
+Constants are `CONST_INT`, `CONST_FLOAT` and `CONST_STR`; identifiers start
+with a letter.
 
-- `operand_stack` guarda pares `(valor, tipo)`.
-- `aplicar_binaria(op)` valida tipos y genera temporales `t1, t2, ...`.
+Two rules exist purely to report problems: `t_BAD_IDENTIFIER` catches names
+that start with a digit or an underscore (`12abc`, `_x`) before the integer
+rule can split them in two, and `t_error` reports unrecognized symbols. Neither
+one stops the scan.
 
-#### Validaciones principales
+### 2. Syntax analysis
 
-- Variables declaradas antes de usar.
-- Tipos compatibles en operaciones y asignaciones.
-- Llamadas a funciones con parametros correctos (numero y tipo).
-- `if` y `while` requieren expresiones booleanas.
-- `return` valido solo dentro de funciones, con tipo correcto.
-- `break` valido solo dentro de ciclos.
-
-### 4) Representacion intermedia (cuadruplos)
-
-Cada cuadruplo es: `[op, argL, argR, res, tipo_res]`.
-
-Operaciones clave:
-
-- `=` asignacion
-- `+ - * /` aritmeticos
-- `< > <= >= == !=` comparaciones
-- `gotof`, `gotot`, `goto` para control de flujo
-- `param`, `gosub` para llamadas
-- `print` para salida
-- `endfun`, `end` como cierres
-
-Estructuras de apoyo:
-
-- `pila_saltos`: indices a rellenar (if/else, do-while).
-- `break_stack`: lista de gotos pendientes por ciclo.
-- `return_jumps_stack`: gotos a parchar al terminar cada funcion.
-- `call_stack`: argumentos de una llamada en progreso.
-
-## Como se ejecuta
+The start symbol is `Program`. Precedence is built into the grammar through the
+`Exp` / `Term` / `Factor` chain rather than through PLY precedence
+declarations, and `Expression` accepts at most one relational operator, so
+`a < b < c` is rejected.
 
 ```
-python compiler.py
+Program       -> ProgramHeader ; OptVars FunctionList main Body end
+Body          -> { StatementList }
+StatementList -> StatementList Statement | empty
+Statement     -> Assignment | Condition | Loop | Call
+               | Print | ReturnStatement | BreakStatement
 ```
 
-- Lee `prueba.txt`.
-- Si hay errores: los imprime con contexto.
-- Si no hay errores: imprime IR y tabla de simbolos, y escribe `prueba-ir.txt`.
+Recovery rules (`Statement : error SEMICOLON`, `Body : LBRACE error RBRACE`,
+and their siblings) let the parser resynchronize at the next `;` or `}` and
+keep reporting. Each recovery point is noted in the error report. Past 50
+syntax errors the parser is assumed to be looping and the run is abandoned.
 
-## Rundown completo de `prueba.txt`
+### 3. Semantic analysis
 
-Contenido actual:
+**Function directory.** Every scope — the program itself and each function —
+is one `FunctionEntry` holding its return type, its parameters in declaration
+order, its variable table, the quadruple it starts at, and how much memory it
+needs.
+
+**Scopes are isolated.** A function sees only its own parameters and locals;
+the main program sees only the globals. Nothing reaches across, which is what
+lets every function reuse the same range of local addresses.
+
+**Semantic cube.** `CUBE[left][right][operator]` gives the result type or
+`error`. The rules that matter:
+
+- `+ - *` between `int`/`float`, with `float` winning.
+- `/` between numerics always produces `float`.
+- Comparisons produce `bool`; `==` and `!=` also accept two strings.
+- Assignment allows `float = int` but not `int = float`.
+
+Assignment is modelled as an operator with the destination type on the left,
+so the same table checks assignments, arguments and return values.
+
+**Checks performed.** Variables declared before use; compatible types in
+operations and assignments; calls matching their signature in arity and type;
+boolean conditions in `if` and `while`; `return` only inside a function and
+with the right type; a non-`void` function having at least one `return` with a
+value; `break` only inside a loop; and names not colliding between variables
+and functions.
+
+### 4. Virtual memory
+
+Every variable, parameter, temporary and constant gets an address that encodes
+both its scope and its type:
+
+| Region   | int   | float | string | bool  | void  |
+| -------- | ----- | ----- | ------ | ----- | ----- |
+| Global   | 1000  | 2000  | 3000   | —     | 4000  |
+| Local    | 7000  | 8000  | 9000   | —     | —     |
+| Temporal | 12000 | 13000 | —      | 14000 | —     |
+| Constant | 17000 | 18000 | 19000  | —     | —     |
+
+Each region holds 1000 addresses. Because the region follows from the address
+alone, the machine can route a read or a write without a symbol table — which
+is why the executable listing carries no names at all.
+
+A function that returns a value owns one global slot of its return type, used
+to park the value until the caller picks it up. On entering a function the
+local and temporary counters restart at the base of their region and the
+enclosing scope's counters are saved, so every function's memory starts from
+zero.
+
+### 5. Intermediate representation
+
+A quadruple is `operator, left, right, result`. The operators are:
+
+| Group      | Operators                                     |
+| ---------- | --------------------------------------------- |
+| Arithmetic | `+` `-` `*` `/` `u+` `u-`                     |
+| Relational | `<` `>` `<=` `>=` `==` `!=`                   |
+| Data       | `=`                                           |
+| Control    | `gotomain` `goto` `gotof` `gotot`             |
+| Calls      | `sub` `param` `gosub` `return` `endfun`       |
+| Output     | `print` `newline`                             |
+| End        | `end`                                         |
+
+Jumps whose destination is not yet known are emitted with a placeholder and
+patched later. The parser keeps one stack per kind of pending jump: `jumps` for
+`if`/`else` and the top of a loop, `break_jumps` for the `break`s of each open
+loop, and `return_jumps` for the `return`s of the function being compiled.
+
+A unary minus is never folded into a negative literal: `-5` emits its own `u-`
+quadruple, so the listing mirrors the source expression.
+
+#### Worked example
 
 ```
-program expresiones;
+program expressions;
 var a : int;
     b : float;
 
@@ -141,127 +234,98 @@ main {
     b = a + 1.5;
     b = a / 2;
     if (b >= 1.0) {
-        print("b es ", b);
+        print("b is ", b);
     };
 }
 end
 ```
 
-### Paso a paso
+`ir-names.txt`:
 
-1. **`program expresiones;`**
+| #   | op       | left    | right | result | type  |
+| --- | -------- | ------- | ----- | ------ | ----- |
+| 1   | gotomain | -       | -     | 2      | -     |
+| 2   | +        | 2       | 3     | t1     | int   |
+| 3   | \*       | t1      | 4     | t2     | int   |
+| 4   | =        | t2      | -     | a      | int   |
+| 5   | +        | a       | 1.5   | t3     | float |
+| 6   | =        | t3      | -     | b      | float |
+| 7   | /        | a       | 2     | t4     | float |
+| 8   | =        | t4      | -     | b      | float |
+| 9   | >=       | b       | 1.0   | t5     | bool  |
+| 10  | gotof    | t5      | -     | 14     | -     |
+| 11  | print    | "b is " | -     | -      | -     |
+| 12  | print    | b       | -     | -      | -     |
+| 13  | newline  | -       | -     | -      | -     |
+| 14  | end      | -       | -     | -      | -     |
 
-- Crea el scope global `expresiones`.
-- Emite `gotomain` y lo deja pendiente para apuntar al inicio de `main`.
+The same program in `ir-addresses.txt`, preceded by its memory header:
 
-2. **`var a : int; b : float;`**
+```
+const
+2                        17000
+3                        17001
+4                        17002
+1.5                      18000
+1.0                      18001
+"b is "                  19000
 
-- Inserta `a` como `int` global.
-- Inserta `b` como `float` global.
+global
+global_int     1
+global_float   1
+...
 
-3. **`main { ... }`**
+quads
+1    gotomain  -1       -1       2
+2    +         17000    17001    12000
+3    *         12000    17002    12001
+4    =         12001    -1       1000
+...
+```
 
-- El `seen_main` parcha `gotomain` al inicio del bloque principal.
+The file has four sections. `const` lists every constant with its address,
+`global` the number of slots the program needs per region, `funcs` one block
+per function (where it starts, how many parameters it takes, how much local
+and temporary memory it needs) and `quads` the instructions themselves, with
+`-1` for an unused field.
 
-4. **`a = (2 + 3) * 4;`**
+### 6. Execution
 
-- `2 + 3` produce `t1` (int).
-- `t1 * 4` produce `t2` (int).
-- `a = t2` valida `int = int`.
+The machine simulates memory with dictionaries, split in two: one shared block
+for globals and constants, and a stack of activation records holding the locals
+and temporaries of each active call. Because every call gets its own record,
+recursion works as expected.
 
-5. **`b = a + 1.5;`**
+Cells are reserved but never initialised, so reading a variable before it is
+assigned is a runtime error rather than a silent zero. The machine also reports
+division by zero, access to memory outside any reserved region, and recursion
+past its depth limit. In every case it prints whatever the program had already
+produced before the fault and stops.
 
-- `a` es `int`, `1.5` es `float`.
-- `a + 1.5` produce `t3` (float).
-- `b = t3` valida `float = float`.
+## Tests
 
-6. **`b = a / 2;`**
+`tests/programs/` holds programs that compile and run — arithmetic, control
+flow, `break`, recursion, calls inside expressions, and one program that
+exercises every construct at once. `tests/compile-errors/` holds programs that
+must be rejected, one file per class of error, and `tests/runtime-errors/`
+programs that compile cleanly and then fail while running.
 
-- `a / 2` produce `t4` (float) por regla de division.
-- `b = t4` valida `float = float`.
+```bash
+python main.py tests/programs/full_program.txt
+python main.py tests/compile-errors/type_mismatch.txt
+python main.py tests/runtime-errors/division_by_zero.txt
+```
 
-7. **`if (b >= 1.0) { print("b es ", b); };`**
+## Current limitations
 
-- `b >= 1.0` produce `t5` (bool).
-- Se emite `gotof t5` al final del `if`.
-- `print("b es ", b)` genera:
-  - `print "b es "`
-  - `print b`
-  - `print "\\n"` (salto de linea automatico)
+- No arrays or compound data structures.
+- No declarable booleans; `bool` only arises from comparisons.
+- Functions cannot read or write global variables.
+- No short-circuit boolean operators (`and`, `or`, `not`).
 
-8. **`end`**
+## Possible extensions
 
-- Emite `end` como cierre del programa.
-
-### IR esperado
-
-| #   | op       | argL    | argR | res | tipo  |
-| --- | -------- | ------- | ---- | --- | ----- |
-| 1   | gotomain | -       | -    | 2   | -     |
-| 2   | +        | 2       | 3    | t1  | int   |
-| 3   | \*       | t1      | 4    | t2  | int   |
-| 4   | =        | t2      | -    | a   | int   |
-| 5   | +        | a       | 1.5  | t3  | float |
-| 6   | =        | t3      | -    | b   | float |
-| 7   | /        | a       | 2    | t4  | float |
-| 8   | =        | t4      | -    | b   | float |
-| 9   | >=       | b       | 1.0  | t5  | bool  |
-| 10  | gotof    | t5      | -    | 14  | -     |
-| 11  | print    | "b es " | -    | -   | -     |
-| 12  | print    | b       | -    | -   | -     |
-| 13  | print    | "\\n"   | -    | -   | -     |
-| 14  | end      | -       | -    | -   | -     |
-
-Nota: el numero exacto de temporales puede variar si cambias el orden o la forma
-de las expresiones, pero la secuencia logica es la misma.
-
-## Detalles de implementacion (por bloques)
-
-### Seccion de helpers
-
-- `emit(op, argL, argR, res, tipo)` agrega un cuadruplo.
-- `next_quad()` calcula el indice del siguiente cuadruplo (base 1).
-- `fill(idx, target)` parcha saltos pendientes.
-
-### Llamadas a funcion
-
-- `start_call` emite `sub` al iniciar una llamada.
-- Se almacenan argumentos en `call_stack`.
-- `cerrar_llamada` valida parametros, emite `param` y `gosub`.
-- Si la llamada es expresion, se copia el retorno a un temporal.
-
-### Return
-
-- Para funciones no-void, el valor se asigna a un simbolo con el nombre
-  de la funcion y se emite un `goto` al `endfun`.
-- Los `goto` de retorno se parchan cuando termina la funcion.
-
-### Break
-
-- `break` emite un `goto` pendiente que se resuelve al cerrar el ciclo.
-
-### Recuperacion de errores
-
-- Reglas `error` permiten continuar parsing despues de `;` o `}`.
-- `recovery_notes` documenta los puntos donde se recupero el parser.
-
-## Archivos relevantes
-
-- `compiler.py`: implementacion completa.
-- `prueba.txt`: programa de entrada actual.
-- `prueba-ir.txt`: salida con cuadruplos y tabla de simbolos.
-- `parsetab.py`: tabla LR generada por PLY.
-- `tests/`: casos de prueba de la materia.
-
-## Limitaciones actuales
-
-- No hay maquina virtual ni ejecucion del IR.
-- No hay manejo de arreglos ni estructuras compuestas.
-- No hay booleanos declarables (solo valores booleanos generados por comparaciones).
-
-## Sugerencias de extension
-
-- Agregar un runtime para ejecutar cuadruplos.
-- Implementar memoria virtual para variables globales, locales y temporales.
-- Agregar arrays y verificacion de indices.
-- Mejorar diagnosticos con contexto de linea completa.
+- Arrays with bounds checking.
+- Boolean operators and declarable `bool` variables.
+- Constant folding and dead-code elimination over the quadruples.
+- Richer diagnostics showing the offending source line in context.

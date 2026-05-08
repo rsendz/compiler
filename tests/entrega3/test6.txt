@@ -1,9 +1,0 @@
-program decl_mal;
-var x, x : int;
-    y : int;
-main
-{   y = 5;
-    z = y + 1;
-    print("resultado = ", w);
-}
-end
