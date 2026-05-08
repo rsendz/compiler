@@ -1,0 +1,33 @@
+# Function calls used as operands: on their own, combined with arithmetic,
+# nested inside another call, in a condition and inside a print.
+
+program callsInExpressions;
+
+var x, y, total : int;
+
+int double(n : int) [
+    {
+        return n * 2;
+    }
+];
+
+int add(a : int, b : int) [
+    {
+        return a + b;
+    }
+];
+
+main {
+    x = 5;
+    y = 10;
+
+    total = double(x);
+    total = double(x) + add(y, 3) * 2;
+    total = add(double(x), double(y));
+
+    if (double(x) > add(y, 1)) {
+        print("double wins");
+    };
+
+    print("result: ", double(x) + add(y, x));
+} end

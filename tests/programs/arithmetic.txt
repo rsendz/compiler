@@ -1,0 +1,16 @@
+# Arithmetic with mixed int and float operands. Note that division always
+# produces a float, even between two integers.
+
+program arithmetic;
+var a, b : int;
+    c, d : float;
+main
+{   a = 7;
+    b = 3;
+    c = a / b + 2;
+    d = (a + b) * 2.5 - 1.0;
+    print("c = ", c);
+    print("d = ", d);
+    print("a - b * 2 = ", a - b * 2);
+}
+end

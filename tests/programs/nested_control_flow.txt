@@ -1,0 +1,62 @@
+# Deep nesting: an if inside an else, a do/while with an if in its body, and
+# functions with local variables calling each other.
+
+program nestedControlFlow;
+
+var a, b, c : int;
+flag : int;
+
+int absolute(n : int) [
+    {
+        if (n < 0) {
+            return -n;
+        } else {
+            return n;
+        };
+    }
+];
+
+void classify(x : int, y : int) [
+    var difference : int;
+    {
+        difference = absolute(x - y);
+
+        if (difference > 10) {
+            if (x > y) {
+                print("x is much greater than y");
+            } else {
+                if (y > x) {
+                    print("y is much greater than x");
+                } else {
+                    print("equal, yet the difference is over 10?");
+                };
+            };
+        } else {
+            print("small difference: ", difference);
+        };
+    }
+];
+
+main {
+    a = 50;
+    b = 3;
+    c = 0;
+
+    do {
+        c = c + 1;
+        if (c == 3) {
+            print("c reached 3");
+        };
+        if (c > 4) {
+            print("past 4 already");
+        } else {
+            print("c is: ", c);
+        };
+    } while (c < 6);
+
+    classify(a, b);
+    classify(absolute(-20), absolute(b - a));
+
+    flag = absolute(a - b) + absolute(b - c);
+    print("flag: ", flag);
+} end

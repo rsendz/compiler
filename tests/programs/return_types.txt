@@ -1,0 +1,40 @@
+# Functions of every return type: int, float and void.
+
+program returnTypes;
+
+var a, b : int;
+r : float;
+
+int maximum(x : int, y : int) [
+    {
+        if (x > y) {
+            return x;
+        } else {
+            return y;
+        };
+    }
+];
+
+float average(x : int, y : int) [
+    var total : float;
+    {
+        total = x + y;
+        return total / 2.0;
+    }
+];
+
+void greet() [
+    {
+        print("Hello from a void function");
+        return;
+    }
+];
+
+main {
+    a = 30;
+    b = 45;
+    print("Maximum: ", maximum(a, b));
+    r = average(a, b);
+    print("Average: ", r);
+    greet();
+} end

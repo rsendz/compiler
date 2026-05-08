@@ -1,0 +1,41 @@
+# A void function with a loop, a recursive int function and a float function.
+# Each call gets its own activation record, which is what makes the recursion
+# work.
+
+program functionsAndRecursion;
+var n, result : int ;
+    x : float;
+
+void repeatMessage ( times : int )
+[  var k : int;
+   {  k = 0;
+      do {
+         print("hello from the void function");
+         k = k + 1;
+      } while ( k < times );
+   }
+];
+
+int factorial ( n : int )
+[
+   {  if ( n > 1 )
+      {  return n * factorial(n - 1); }
+      else
+      {  return 1; };
+   }
+];
+
+float half ( v : int )
+[
+   {  return v / 2; }
+];
+
+main
+{   n = 5;
+    repeatMessage(2);
+    result = factorial(n);
+    print("factorial(5) = ", result);
+    x = half(7);
+    print("half(7) = ", x);
+}
+end

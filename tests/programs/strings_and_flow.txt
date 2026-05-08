@@ -1,0 +1,43 @@
+# Strings, a typed function, a void function taking a string, if/else, and a
+# loop cut short by 'break'.
+
+program stringsAndFlow;
+var x, y : int;
+    r : float;
+    message : string;
+
+int add (a : int, b : int) [
+    {
+        return a + b;
+    }
+];
+
+void greet (name : string) [
+    {
+        print("hello ", name);
+    }
+];
+
+main {
+    x = 3 + 5 * 2;
+    y = add(x, 10);
+    r = x / 2;
+    message = "world";
+
+    if (x > y) {
+        print("x is greater");
+    } else {
+        print("y is greater or equal");
+    };
+
+    do {
+        x = x - 1;
+        if (x == 1) {
+            break;
+        };
+    } while (x > 0);
+
+    greet(message);
+    print("done");
+}
+end

@@ -1,0 +1,45 @@
+# Every construct of the language in one program: global variables, void and
+# typed functions, return, assignments, arithmetic, if/else, do/while, print,
+# and calls both as statements and inside expressions.
+
+program full;
+
+var x, y, z : int;
+result : float;
+message : string;
+
+int add(a : int, b : int) [
+    {
+        return a + b;
+    }
+];
+
+void printDouble(n : int) [
+    var temp : int;
+    {
+        temp = n * 2;
+        print("The double is: ", temp);
+        return;
+    }
+];
+
+main {
+    x = 10;
+    y = 20;
+    z = add(x, y);
+    result = add(x, y) * 2.5 + 1.0;
+
+    if (z > 15) {
+        print("z is greater than 15: ", z);
+    } else {
+        print("z is not greater than 15");
+    };
+
+    x = 0;
+    do {
+        x = x + 1;
+        printDouble(x);
+    } while (x < 5);
+
+    print("Final result: ", result);
+} end

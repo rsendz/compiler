@@ -1,0 +1,17 @@
+# 'break' leaves the loop before its condition would have stopped it.
+
+program breakInLoop;
+var i : int;
+main
+{   i = 0;
+    do {
+        i = i + 1;
+        if ( i == 4 )
+        {   print("leaving the loop at i = ", i);
+            break;
+        };
+        print("iteration ", i);
+    } while ( i < 100 );
+    print("out of the loop with i = ", i);
+}
+end

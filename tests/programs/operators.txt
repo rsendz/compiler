@@ -1,0 +1,40 @@
+# Every operator: arithmetic (+ - * /), relational (> < >= <= == !=), the unary
+# sign, and parentheses overriding precedence.
+
+program operators;
+
+var a, b, c, d, e : int;
+f : float;
+
+main {
+    a = 10;
+    b = 3;
+
+    c = a + b * 2;
+    d = (a + b) * 2;
+    e = a - b * 2 + 4;
+    f = 3.14 * 2.0 + 1.5 / 0.5;
+
+    e = -5 + +a;
+
+    if (a > b) {
+        print("a > b");
+    };
+    if (a < 100) {
+        print("a < 100");
+    };
+    if (a >= 10) {
+        print("a >= 10");
+    };
+    if (b <= 3) {
+        print("b <= 3");
+    };
+    if (a == 10) {
+        print("a == 10");
+    };
+    if (a != b) {
+        print("a != b");
+    };
+
+    print("c=", c, " d=", d, " e=", e);
+} end

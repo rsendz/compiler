@@ -1,0 +1,25 @@
+# A do/while accumulating a sum, with an if inside the body and an if/else
+# after the loop.
+
+program loopsAndConditions;
+var i, total : int;
+main
+{   total = 0;
+    i = 1;
+    do {
+        total = total + i;
+        if (i == 3)
+        {   print("reached 3, running total = ", total);
+        };
+        i = i + 1;
+    } while ( i <= 5 );
+    print("final sum of 1..5 = ", total);
+
+    if ( total > 10 )
+    {   print("the sum is greater than 10");
+    }
+    else
+    {   print("the sum is not greater than 10");
+    };
+}
+end
