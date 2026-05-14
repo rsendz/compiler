@@ -1,0 +1,21 @@
+# A loop inside a loop. The 'break' belongs to the inner loop only, so the
+# outer one keeps going after it fires.
+
+program nestedLoops;
+var i, j : int;
+main {
+    i = 0;
+    do {
+        i = i + 1;
+        j = 0;
+        do {
+            j = j + 1;
+            if (j == 2) {
+                break;
+            };
+            print("i=", i, " j=", j);
+        } while (j < 5);
+    } while (i < 3);
+    print("done, i=", i, " j=", j);
+}
+end

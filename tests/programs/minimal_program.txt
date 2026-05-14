@@ -1,0 +1,6 @@
+# The smallest program the grammar accepts: no variables, no functions and an
+# empty body. It compiles and runs, printing nothing.
+
+program minimal;
+main { }
+end

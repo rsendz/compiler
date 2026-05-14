@@ -1,0 +1,19 @@
+# Printing every type: strings, ints, floats, the boolean a comparison yields,
+# and an expression mixing int and float.
+
+program printTypes;
+var n : int;
+    x : float;
+    s : string;
+main {
+    n = 7;
+    x = 2.5;
+    s = "text";
+
+    print(s, " ", n, " ", x);
+    print("n > 3 is ", n > 3);
+    print("n < 3 is ", n < 3);
+    print("n + x = ", n + x);
+    print("n / 2 = ", n / 2);
+}
+end

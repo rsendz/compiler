@@ -1,0 +1,22 @@
+# Two recursive calls per level, so the activation records nest and unwind
+# repeatedly rather than forming a single chain.
+
+program fibonacci;
+var r : int;
+
+int fib ( n : int ) [
+   {  if ( n < 2 ) {
+         return n;
+      } else {
+         return fib(n - 1) + fib(n - 2);
+      };
+   }
+];
+
+main {
+    r = fib(10);
+    print("fib(10) = ", r);
+    print("fib(0) = ", fib(0));
+    print("fib(1) = ", fib(1));
+}
+end

@@ -1,0 +1,24 @@
+# Strings support equality and inequality. Ordering operators do not apply to
+# them; see tests/compile-errors/invalid_string_operations.txt.
+
+program stringComparison;
+var s, t : string;
+main {
+    s = "abc";
+    t = "abc";
+
+    if (s == t) {
+        print("s and t are equal");
+    };
+    if (s != "xyz") {
+        print("s differs from xyz");
+    };
+
+    t = "def";
+    if (s == t) {
+        print("this should not print");
+    } else {
+        print("s and t differ now");
+    };
+}
+end

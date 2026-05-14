@@ -1,0 +1,25 @@
+# Several 'return' statements in one function. The first one reached wins, and
+# every one of them jumps to the same end of the function.
+
+program earlyReturn;
+var a, b : int;
+
+int firstPositive ( x : int, y : int ) [
+   {  if ( x > 0 ) {
+         return x;
+      };
+      if ( y > 0 ) {
+         return y;
+      };
+      return 0;
+   }
+];
+
+main {
+    a = firstPositive(-1, 7);
+    b = firstPositive(-1, -2);
+    print("first positive of (-1, 7) = ", a);
+    print("first positive of (-1, -2) = ", b);
+    print("first positive of (4, 9) = ", firstPositive(4, 9));
+}
+end

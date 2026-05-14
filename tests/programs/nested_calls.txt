@@ -1,0 +1,25 @@
+# A function calling another function, and calls whose results feed into
+# further calls.
+
+program nestedCalls;
+var r : int;
+
+int square ( n : int ) [
+   {  return n * n; }
+];
+
+int triple ( n : int ) [
+   {  return n * 3; }
+];
+
+int sumOfSquares ( a : int, b : int ) [
+   {  return square(a) + square(b); }
+];
+
+main {
+    r = sumOfSquares(3, 4);
+    print("sum of squares of 3 and 4 = ", r);
+    print("triple of triple of 2 = ", triple(triple(2)));
+    print("square of sum of squares = ", square(sumOfSquares(1, 2)));
+}
+end
