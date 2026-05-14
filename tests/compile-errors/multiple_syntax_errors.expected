@@ -1,0 +1,31 @@
+Compilation errors:
+
+1 lexical error(s):
+  - Lexical error at line 14: unrecognized symbol '&' at position 220
+
+20 syntax error(s):
+  - Syntax error at line 14, column 5: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 14, column 7: unexpected token OP_ASSIGN ('=')
+  - Syntax error at line 14, column 9: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 14, column 13: unexpected token IDENTIFIER ('y')
+  - Syntax error at line 17, column 8: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 17, column 10: unexpected token OP_GT ('>')
+  - Syntax error at line 17, column 12: unexpected token CONST_INT ('5')
+  - Syntax error at line 17, column 14: unexpected token LBRACE ('{')
+  - Syntax error at line 18, column 9: unexpected token PRINT ('print')
+  - Syntax error at line 18, column 23: unexpected token SEMICOLON (';')
+  - Syntax error at line 19, column 5: unexpected token RBRACE ('}')
+  - Syntax error at line 19, column 6: unexpected token SEMICOLON (';')
+  - Syntax error at line 22, column 5: unexpected token PRINT ('print')
+  - Syntax error at line 22, column 10: unexpected token LPAREN ('(')
+  - Syntax error at line 22, column 11: unexpected token CONST_STR ('"end of program"')
+  - Syntax error at line 22, column 27: unexpected token RPAREN (')')
+  - Syntax error at line 22, column 28: unexpected token SEMICOLON (';')
+  - Syntax error at line 23, column 1: unexpected token RBRACE ('}')
+  - Syntax error at line 23, column 3: unexpected token END ('end')
+  - Syntax error: unexpected end of file
+
+1 semantic error(s):
+  - Semantic error: the 'if' condition must be boolean (line 18)
+
+Total: 1 lexical + 20 syntax + 1 semantic

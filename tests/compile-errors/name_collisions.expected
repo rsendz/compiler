@@ -1,0 +1,7 @@
+Compilation errors:
+
+2 semantic error(s):
+  - Semantic error: function 'value' cannot share its name with a variable (line 6)
+  - Semantic error: function 'twice' is already declared (line 14)
+
+Total: 0 lexical + 0 syntax + 2 semantic

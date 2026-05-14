@@ -1,0 +1,15 @@
+# Strings only support == and !=. Ordering comparisons and the unary sign do
+# not apply to them.
+
+program invalidStringOperations;
+var s : string;
+    n : int;
+main {
+    s = "hi";
+    if (s < "zz") {
+        print("unreachable");
+    };
+    n = -s;
+    n = +s;
+}
+end

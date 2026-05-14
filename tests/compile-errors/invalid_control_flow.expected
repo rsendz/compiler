@@ -1,0 +1,9 @@
+Compilation errors:
+
+4 semantic error(s):
+  - Semantic error: the 'if' condition must be boolean (line 8)
+  - Semantic error: the 'while' condition must be boolean (line 13)
+  - Semantic error: 'break' outside of a loop (line 14)
+  - Semantic error: 'return' outside of a function (line 15)
+
+Total: 0 lexical + 0 syntax + 4 semantic

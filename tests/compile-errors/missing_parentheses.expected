@@ -1,0 +1,32 @@
+Compilation errors:
+
+24 syntax error(s):
+  - Syntax error at line 11, column 8: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 11, column 10: unexpected token OP_GT ('>')
+  - Syntax error at line 11, column 12: unexpected token CONST_INT ('5')
+  - Syntax error at line 11, column 14: unexpected token LBRACE ('{')
+  - Syntax error at line 12, column 9: unexpected token PRINT ('print')
+  - Syntax error at line 12, column 25: unexpected token SEMICOLON (';')
+  - Syntax error at line 13, column 5: unexpected token RBRACE ('}')
+  - Syntax error at line 13, column 6: unexpected token SEMICOLON (';')
+  - Syntax error at line 15, column 5: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 15, column 7: unexpected token OP_ASSIGN ('=')
+  - Syntax error at line 15, column 9: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 15, column 11: unexpected token OP_PLUS ('+')
+  - Syntax error at line 15, column 13: unexpected token CONST_INT ('1')
+  - Syntax error at line 15, column 14: unexpected token SEMICOLON (';')
+  - Syntax error at line 16, column 5: unexpected token PRINT ('print')
+  - Syntax error at line 16, column 10: unexpected token LPAREN ('(')
+  - Syntax error at line 16, column 11: unexpected token CONST_STR ('"x is now: "')
+  - Syntax error at line 16, column 23: unexpected token COMMA (',')
+  - Syntax error at line 16, column 25: unexpected token IDENTIFIER ('x')
+  - Syntax error at line 16, column 26: unexpected token RPAREN (')')
+  - Syntax error at line 16, column 27: unexpected token SEMICOLON (';')
+  - Syntax error at line 17, column 1: unexpected token RBRACE ('}')
+  - Syntax error at line 17, column 3: unexpected token END ('end')
+  - Syntax error: unexpected end of file
+
+1 semantic error(s):
+  - Semantic error: the 'if' condition must be boolean (line 12)
+
+Total: 0 lexical + 24 syntax + 1 semantic

@@ -1,0 +1,13 @@
+Compilation errors:
+
+3 lexical error(s):
+  - Lexical error at line 9: invalid identifier '12abc' at position 148 (identifiers must start with a letter)
+  - Lexical error at line 12: invalid identifier '_var' at position 200 (identifiers must start with a letter)
+  - Lexical error at line 15: invalid identifier '3total' at position 262 (identifiers must start with a letter)
+
+3 syntax error(s):
+  - Syntax error at line 15, column 15: unexpected token SEMICOLON (';')
+  - Syntax error at line 18, column 7: unexpected token OP_ASSIGN ('=')
+  - Syntax error at line 18, column 9: unexpected token CONST_INT ('42')
+
+Total: 3 lexical + 3 syntax + 0 semantic

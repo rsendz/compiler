@@ -1,0 +1,6 @@
+# A program without a 'main' block. The parser reaches 'end' where it expected
+# the main body.
+
+program missingMain;
+var x : int;
+end

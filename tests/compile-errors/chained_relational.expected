@@ -1,0 +1,7 @@
+Compilation errors:
+
+2 syntax error(s):
+  - Syntax error at line 13, column 15: unexpected token OP_LT ('<')
+  - Syntax error at line 13, column 17: unexpected token IDENTIFIER ('c')
+
+Total: 0 lexical + 2 syntax + 0 semantic

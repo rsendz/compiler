@@ -1,0 +1,8 @@
+Compilation errors:
+
+3 semantic error(s):
+  - Semantic error: invalid operation 'string + int' (line 9)
+  - Semantic error: cannot assign float to 'n' (int) (line 11)
+  - Semantic error: invalid operation 'string / int' (line 12)
+
+Total: 0 lexical + 0 syntax + 3 semantic

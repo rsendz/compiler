@@ -1,0 +1,12 @@
+Compilation errors:
+
+7 semantic error(s):
+  - Semantic error: incompatible return type, expected int but got string (line 7)
+  - Semantic error: function 'g' returns int and must have at least one 'return' with a value (line 6)
+  - Semantic error: a 'void' function must not return a value (line 11)
+  - Semantic error: function 'g' expects 1 argument(s) but got 2 (line 15)
+  - Semantic error: argument 1 of 'g' expects int but got string (line 16)
+  - Semantic error: void function 'h' does not produce a value usable in an expression (line 17)
+  - Semantic error: function 'missing' is not declared (line 18)
+
+Total: 0 lexical + 0 syntax + 7 semantic

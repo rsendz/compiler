@@ -1,0 +1,21 @@
+# A function sharing its name with a variable, and a function declared twice.
+
+program nameCollisions;
+var value : int;
+
+int value ( n : int ) [
+   {  return n; }
+];
+
+void twice () [
+   {  print("first"); }
+];
+
+void twice () [
+   {  print("second"); }
+];
+
+main {
+    value = 1;
+}
+end
