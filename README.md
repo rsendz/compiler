@@ -67,6 +67,7 @@ littleduck/
         machine.py         the interpreter
         errors.py          runtime errors
         __main__.py        `python -m littleduck.vm`
+run_tests.py               runs every program under tests/ and checks its output
 tests/
     programs/              programs that compile and run
     compile-errors/        programs rejected at compile time
@@ -304,11 +305,39 @@ produced before the fault and stops.
 
 ## Tests
 
-`tests/programs/` holds programs that compile and run — arithmetic, control
-flow, `break`, recursion, calls inside expressions, and one program that
-exercises every construct at once. `tests/compile-errors/` holds programs that
-must be rejected, one file per class of error, and `tests/runtime-errors/`
-programs that compile cleanly and then fail while running.
+```bash
+python run_tests.py
+```
+
+Every `<name>.txt` under `tests/` is compiled, run, and compared against the
+`<name>.expected` file beside it. The directory a program lives in also says
+how it must finish, so a program that was supposed to fail but succeeded is a
+failure even if its output looks right.
+
+- `tests/programs/` — programs that compile and run: arithmetic, control flow,
+  nested loops, `break`, early `return`, recursion (including a two-call
+  `fib`), calls nested inside other calls, string comparison, printing every
+  type, and one program exercising every construct at once.
+- `tests/compile-errors/` — one file per class of rejection: bad identifiers,
+  syntax errors and their recovery, type mismatches, undeclared names, name
+  collisions, calls that do not match their signature, misplaced `break` and
+  `return`, and a function reaching for a global variable.
+- `tests/runtime-errors/` — programs that compile cleanly and then fail:
+  division by zero (int and float), reading an uninitialized global or local,
+  and runaway recursion.
+
+Pass a fragment of a name to run part of the suite, and `--update` to record
+the current output as the expected one after an intentional change:
+
+```bash
+python run_tests.py recursion
+python run_tests.py --update
+```
+
+Review what `--update` writes before committing it: it records whatever the
+compiler currently does, which is only correct if the change was intended.
+
+Individual programs can still be run by hand:
 
 ```bash
 python main.py tests/programs/full_program.txt
