@@ -1,0 +1,17 @@
+# 'k' is a local of the function, declared but never assigned. Locals live in
+# the activation record, so this is the local counterpart of
+# uninitialized_variable.txt.
+
+program uninitializedLocal;
+var r : int;
+
+int addScratch ( n : int ) [
+   var k : int;
+   {  return n + k; }
+];
+
+main {
+    r = addScratch(1);
+    print(r);
+}
+end

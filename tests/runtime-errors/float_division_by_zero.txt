@@ -1,0 +1,12 @@
+# Division by zero is caught for floats too, not only for integers.
+
+program floatDivisionByZero;
+var a, b, r : float;
+main {
+    a = 1.0;
+    b = 0.0;
+    print("dividing by 0.0");
+    r = a / b;
+    print("result = ", r);
+}
+end

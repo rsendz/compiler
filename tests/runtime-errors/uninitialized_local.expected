@@ -1,0 +1,1 @@
+Runtime error (quadruple 2): read of uninitialized memory (address 7001, region local_int): a variable was used before being assigned a value
