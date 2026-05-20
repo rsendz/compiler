@@ -415,6 +415,15 @@ def p_Print(p):
     CONTEXT.emit('newline', None, None, None, '-')
 
 
+def p_Print_no_arguments(p):
+    "Print : PRINT LPAREN RPAREN SEMICOLON"
+    # An argument list is required. Recognizing the empty call here turns what
+    # would otherwise cascade into a run of syntax errors into one message
+    # pointing at the offending line.
+    CONTEXT.semantic_error(
+        "Semantic error: 'print' requires at least one argument", _line(p, 1))
+
+
 def p_PrintArgList_more(p):
     "PrintArgList : PrintArgList COMMA PrintArg"
 
