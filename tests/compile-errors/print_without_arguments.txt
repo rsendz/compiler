@@ -1,0 +1,14 @@
+# 'print' needs at least one argument. The empty call is recognized by the
+# grammar so it is reported once, on its own line, instead of derailing the
+# parser: everything after it is still checked.
+
+program printWithoutArguments;
+var x : int;
+main {
+    x = 1;
+    print();
+    print("this line is still parsed", x);
+    print();
+    print(undeclared);
+}
+end

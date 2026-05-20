@@ -1,0 +1,8 @@
+Compilation errors:
+
+3 semantic error(s):
+  - Semantic error: 'print' requires at least one argument (line 9)
+  - Semantic error: 'print' requires at least one argument (line 11)
+  - Semantic error: variable 'undeclared' is not declared (line 12)
+
+Total: 0 lexical + 0 syntax + 3 semantic
