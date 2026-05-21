@@ -112,7 +112,8 @@ end
 
 Types are `int`, `float` and `string`; functions may also be `void`. Function
 bodies are delimited by `[ ]`, blocks by `{ }`, and every statement — including
-`if` and `do/while` — ends with a semicolon. Comments start with `#`.
+`if` and `do/while` — ends with a semicolon. Comments start with `#`. `print`
+takes one or more arguments and adds a line break of its own.
 
 ## How it works
 
@@ -321,7 +322,8 @@ failure even if its output looks right.
 - `tests/compile-errors/` — one file per class of rejection: bad identifiers,
   syntax errors and their recovery, type mismatches, undeclared names, name
   collisions, calls that do not match their signature, misplaced `break` and
-  `return`, and a function reaching for a global variable.
+  `return`, `print` with no arguments, and a function reaching for a global
+  variable.
 - `tests/runtime-errors/` — programs that compile cleanly and then fail:
   division by zero (int and float), reading an uninitialized global or local,
   and runaway recursion.
