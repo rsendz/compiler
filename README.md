@@ -322,8 +322,8 @@ failure even if its output looks right.
 - `tests/compile-errors/` — one file per class of rejection: bad identifiers,
   syntax errors and their recovery, type mismatches, undeclared names, name
   collisions, calls that do not match their signature, misplaced `break` and
-  `return`, `print` with no arguments, and a function reaching for a global
-  variable.
+  `return`, a typed function with no value return, `print` with no arguments,
+  and a function reaching for a global variable.
 - `tests/runtime-errors/` — programs that compile cleanly and then fail:
   division by zero (int and float), reading an uninitialized global or local,
   and runaway recursion.
