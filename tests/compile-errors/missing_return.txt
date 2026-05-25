@@ -1,0 +1,22 @@
+# A function with a declared return type must contain a 'return' with a value.
+# This is the counterpart of the return-type check: the flag that records
+# "a value return was written" is set before the type of that value is
+# checked, so a function whose only return is ill-typed reports the type
+# error alone, while a function with no value return at all still reports
+# this one.
+
+program missingReturn;
+var r : int;
+
+int noReturnAtAll ( n : int ) [
+   {  print("nothing returned"); }
+];
+
+int onlyVoidReturn ( n : int ) [
+   {  return; }
+];
+
+main {
+    r = 0;
+}
+end

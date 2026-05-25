@@ -1,0 +1,8 @@
+Compilation errors:
+
+3 semantic error(s):
+  - Semantic error: function 'noReturnAtAll' returns int and must have at least one 'return' with a value (line 11)
+  - Semantic error: the function must return a value of type int (line 16)
+  - Semantic error: function 'onlyVoidReturn' returns int and must have at least one 'return' with a value (line 15)
+
+Total: 0 lexical + 0 syntax + 3 semantic

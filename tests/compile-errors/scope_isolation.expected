@@ -1,7 +1,6 @@
 Compilation errors:
 
-2 semantic error(s):
+1 semantic error(s):
   - Semantic error: variable 'total' is not declared (line 8)
-  - Semantic error: function 'accumulate' returns int and must have at least one 'return' with a value (line 7)
 
-Total: 0 lexical + 0 syntax + 2 semantic
+Total: 0 lexical + 0 syntax + 1 semantic
