@@ -371,13 +371,17 @@ def p_ReturnStatement_value(p):
         CONTEXT.semantic_error(
             "Semantic error: a 'void' function must not return a value", line)
         return
+    # A value return was written. Whether it type-checks is a separate
+    # question, so the flag is set before that check: otherwise a function
+    # whose only return is ill-typed would also be reported as having no
+    # return at all, which says nothing the type error has not already said.
+    entry.has_return = True
     if result_type(entry.return_type, '=', value_type) == 'error':
         if value_type != 'error':
             CONTEXT.semantic_error(
                 "Semantic error: incompatible return type, expected %s but "
                 "got %s" % (entry.return_type, value_type), line)
         return
-    entry.has_return = True
     # The value is copied into the function's global slot and control jumps to
     # the endfun, whose position is only known once the function is closed.
     CONTEXT.emit('return', value, None, entry.name, entry.return_type)
