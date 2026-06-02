@@ -35,7 +35,13 @@ class FunctionEntry:
         self.parameters = []      # [(name, type)] in declaration order
         self.variables = {}       # name -> Variable
         self.start_quad = None
+        # A 'return' with a value was written somewhere in the body...
         self.has_return = False
+        # ...and every one of them type-checked. Only then is the body's
+        # control flow worth analysing: a return that failed to type emits no
+        # quadruple, so the flow graph would be missing paths that the source
+        # actually has.
+        self.all_returns_valid = True
         self.memory = {}          # region name -> number of slots needed
 
     def reserve(self, region):

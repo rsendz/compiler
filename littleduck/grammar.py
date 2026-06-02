@@ -11,6 +11,8 @@ import ply.yacc as yacc
 
 from .context import CONTEXT
 from .errors import TooManyErrors
+from .flow import (has_unresolved_jump,
+                   reaches_end_without_returning)
 from .lexer import tokens  # noqa: F401  (yacc reads the token list from here)
 from .semantics import result_type
 
@@ -227,8 +229,38 @@ def p_Function(p):
     if CONTEXT.return_jumps:
         for index in CONTEXT.return_jumps.pop():
             CONTEXT.patch(index, end_quad)
+    # Every jump now has its destination, so the control flow of the function
+    # is complete and can be walked.
+    _check_every_path_returns(entry, end_quad)
     CONTEXT.functions.pop_scope()
     CONTEXT.memory.exit_function()
+
+
+def _check_every_path_returns(entry, end_quad):
+    """Report a typed function whose end is reachable without a return.
+
+    Only functions that do return a value somewhere are examined: one with no
+    value return at all is already reported above, and repeating it here would
+    say nothing new.
+    """
+    if entry is None or not entry.is_function:
+        return
+    if entry.return_type == 'void' or not entry.has_return:
+        return
+    if not entry.all_returns_valid:
+        # A return already failed its type check; that error stands on its own
+        # and the missing quadruple would make this one a false accusation.
+        return
+    start, end = entry.start_quad - 1, end_quad - 1
+    if has_unresolved_jump(CONTEXT.quads, start, end):
+        # The function did not parse cleanly; its flow graph is not
+        # trustworthy enough to accuse it of anything.
+        return
+    if reaches_end_without_returning(CONTEXT.quads, start, end):
+        CONTEXT.semantic_error(
+            "Semantic error: function '%s' returns %s but can reach its end "
+            "without returning a value"
+            % (entry.name, entry.return_type), entry.declaration_line)
 
 
 # --- Statements ------------------------------------------------------------
@@ -381,6 +413,9 @@ def p_ReturnStatement_value(p):
             CONTEXT.semantic_error(
                 "Semantic error: incompatible return type, expected %s but "
                 "got %s" % (entry.return_type, value_type), line)
+        # No quadruple is emitted for this return, so the body's control flow
+        # is no longer a faithful picture of the source.
+        entry.all_returns_valid = False
         return
     # The value is copied into the function's global slot and control jumps to
     # the endfun, whose position is only known once the function is closed.
