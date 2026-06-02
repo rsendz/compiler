@@ -1,0 +1,8 @@
+Compilation errors:
+
+3 semantic error(s):
+  - Semantic error: function 'onlyOnTrueBranch' returns int but can reach its end without returning a value (line 11)
+  - Semantic error: function 'missingElseBranch' returns int but can reach its end without returning a value (line 18)
+  - Semantic error: function 'onlyInsideLoop' returns int but can reach its end without returning a value (line 27)
+
+Total: 0 lexical + 0 syntax + 3 semantic
