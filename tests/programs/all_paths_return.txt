@@ -1,0 +1,54 @@
+# The other side of the partial-return check: every one of these returns a
+# value on every path, so none of them may be reported. They cover the shapes
+# most likely to be misread by a flow analysis -- nested if/else, a return
+# after a loop, a return inside a loop body, and a return after a statement
+# that is only conditionally executed.
+
+program allPathsReturn;
+var r : int;
+
+int nestedIfElse ( n : int ) [
+   {  if (n > 10) {
+         if (n > 100) {
+            return 3;
+         } else {
+            return 2;
+         };
+      } else {
+         return 1;
+      };
+   }
+];
+
+int loopThenReturn ( n : int ) [
+   {  do {
+         if (n == 3) {
+            break;
+         };
+         n = n + 1;
+      } while (n < 10);
+      return n;
+   }
+];
+
+int returnsInsideLoopBody ( n : int ) [
+   {  do {
+         return n;
+      } while (n < 10);
+   }
+];
+
+int unconditionalAfterIf ( n : int ) [
+   {  if (n > 0) {
+         print("positive");
+      };
+      return n;
+   }
+];
+
+main {
+    r = nestedIfElse(5) + loopThenReturn(1) + returnsInsideLoopBody(2)
+        + unconditionalAfterIf(3);
+    print("r = ", r);
+}
+end
