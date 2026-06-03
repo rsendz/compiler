@@ -57,6 +57,7 @@ littleduck/
     symbols.py             function directory and variable tables
     memory.py              virtual memory layout and address allocation
     quadruples.py          the intermediate representation
+    flow.py                reachability over the generated quadruples
     context.py             the state shared by every phase
     ir.py                  address resolution and the output files
     compiler.py            the compilation driver
@@ -177,8 +178,21 @@ so the same table checks assignments, arguments and return values.
 operations and assignments; calls matching their signature in arity and type;
 boolean conditions in `if` and `while`; `return` only inside a function and
 with the right type; a non-`void` function having at least one `return` with a
-value; `break` only inside a loop; and names not colliding between variables
-and functions.
+value and returning one on every path; `break` only inside a loop; and names
+not colliding between variables and functions.
+
+**Partial returns.** Whether every path through a typed function reaches a
+`return` cannot be answered from the grammar, since the compiler builds no
+syntax tree. It is answered from the quadruples instead: the jumps between
+them already describe the control flow of the body, so walking them from the
+function's first instruction shows whether its `endfun` is reachable without
+passing through a `return`. `littleduck/flow.py` does that walk.
+
+The check stays quiet unless it has something new to say. A function with no
+value return at all is already reported by the check above, and one whose
+`return` failed its type check emits no `return` quadruple — so its flow graph
+is missing a path the source really has, and accusing it of a partial return
+would be wrong. Both cases are skipped.
 
 ### 4. Virtual memory
 
@@ -318,12 +332,15 @@ failure even if its output looks right.
 - `tests/programs/` — programs that compile and run: arithmetic, control flow,
   nested loops, `break`, early `return`, recursion (including a two-call
   `fib`), calls nested inside other calls, string comparison, printing every
-  type, and one program exercising every construct at once.
+  type, functions that return on every path (guarding the partial-return check
+  against false positives), and one program exercising every construct at
+  once.
 - `tests/compile-errors/` — one file per class of rejection: bad identifiers,
   syntax errors and their recovery, type mismatches, undeclared names, name
   collisions, calls that do not match their signature, misplaced `break` and
-  `return`, a typed function with no value return, `print` with no arguments,
-  and a function reaching for a global variable.
+  `return`, a typed function with no value return, one that returns on only
+  some paths, `print` with no arguments, and a function reaching for a global
+  variable.
 - `tests/runtime-errors/` — programs that compile cleanly and then fail:
   division by zero (int and float), reading an uninitialized global or local,
   and runaway recursion.
