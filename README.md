@@ -370,6 +370,18 @@ python main.py tests/runtime-errors/division_by_zero.txt
 - No declarable booleans; `bool` only arises from comparisons.
 - Functions cannot read or write global variables.
 - No short-circuit boolean operators (`and`, `or`, `not`).
+- The partial-return check is intraprocedural: `gosub` is treated as falling
+  through to the next instruction, so the analysis never follows a call into
+  the function it invokes. A function that ends by calling one that never
+  returns is still reported as reaching its end.
+- The partial-return check reasons about reachability, not about whether a
+  condition can hold. Conditions are never evaluated, so `if (1 > 0) { return
+  n; };` still leaves the path after the `if` reachable, and a loop kept alive
+  by an always-true condition and left only through a `return` is reported
+  even though it never exits normally. A loop whose body returns
+  unconditionally is not affected, since no path gets past it either way. The
+  cost is a report on a function that does return on every path you could
+  actually take; making the last `return` unconditional silences it.
 
 ## Possible extensions
 
