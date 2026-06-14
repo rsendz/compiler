@@ -9,7 +9,7 @@ compilation starts from a clean slate by calling :meth:`CompilationContext.reset
 from .errors import ErrorLog
 from .memory import MemorySpace
 from .quadruples import QuadrupleList
-from .semantics import result_type
+from .semantics import negation_type, result_type
 from .symbols import FunctionDirectory, Variable
 
 # An operand whose type could not be determined. It is pushed instead of a real
@@ -34,7 +34,8 @@ class CompilationContext:
         self.break_jumps = []     # one list of pending breaks per open loop
         self.return_jumps = []    # one list of pending returns per function
         self.calls = []           # one frame per call being parsed
-        self.pending_ids = []     # identifiers of the declaration being parsed
+        self.pending_ids = []     # declarators of the declaration being parsed
+        self.short_circuits = []  # one frame per 'and'/'or' being parsed
         self.goto_main_index = None
 
     def reset(self):
@@ -51,6 +52,7 @@ class CompilationContext:
         self.return_jumps = []
         self.calls = []
         self.pending_ids = []
+        self.short_circuits = []
         self.goto_main_index = None
 
     # -- Quadruple emission -----------------------------------------------
@@ -183,6 +185,80 @@ class CompilationContext:
         temporary = self.new_temporary(value_type)
         self.emit(operator, value, None, temporary, value_type)
         self.push_operand(temporary, value_type)
+
+    def apply_not(self):
+        """Negate the boolean on top of the operand stack."""
+        if not self.operands:
+            return
+        value, value_type = self.operands.pop()
+        outcome = negation_type(value_type)
+        if outcome == 'error':
+            if value_type != 'error':
+                self.semantic_error(
+                    "Semantic error: 'not' expects bool but got %s"
+                    % value_type)
+            self.push_error_operand()
+            return
+        temporary = self.new_temporary('bool')
+        self.emit('not', value, None, temporary, 'bool')
+        self.push_operand(temporary, 'bool')
+
+    # -- Logical operators -------------------------------------------------
+    def begin_short_circuit(self, operator):
+        """Emit the first half of an ``and``/``or``, before its right operand.
+
+        ``and`` and ``or`` do not become quadruples of their own. The left
+        operand is copied into the temporary that will hold the result, and a
+        jump over the right operand is emitted: ``gotof`` for ``and``, which
+        skips when the left side is already false, and ``gotot`` for ``or``,
+        which skips when it is already true. That jump is what makes the
+        operators short-circuiting -- the right operand is only evaluated when
+        the left one did not settle the answer.
+        """
+        left = self.pop_operand()
+        if left is None:
+            self.short_circuits.append(None)
+            return
+        value, value_type = left
+        if value_type not in ('bool', 'error'):
+            self.semantic_error(
+                "Semantic error: the left operand of '%s' must be bool, not %s"
+                % (operator, value_type))
+        if value_type != 'bool':
+            self.short_circuits.append(None)
+            return
+        temporary = self.new_temporary('bool')
+        self.emit('=', value, None, temporary, 'bool')
+        jump = 'gotof' if operator == 'and' else 'gotot'
+        self.short_circuits.append(
+            {'temporary': temporary,
+             'jump': self.emit_pending_jump(jump, temporary)})
+
+    def finish_short_circuit(self, operator):
+        """Emit the second half of an ``and``/``or``, once its right operand is in.
+
+        The right operand overwrites the temporary, and the jump opened by
+        :meth:`begin_short_circuit` is patched to land just after it.
+        """
+        right = self.pop_operand()
+        frame = self.short_circuits.pop() if self.short_circuits else None
+        if frame is None or right is None:
+            self.push_error_operand()
+            return
+        value, value_type = right
+        if value_type != 'bool':
+            if value_type != 'error':
+                self.semantic_error(
+                    "Semantic error: the right operand of '%s' must be bool, "
+                    "not %s" % (operator, value_type))
+            # The jump still needs a destination, or the control flow left
+            # behind would not be walkable by the return analysis.
+            self.patch(frame['jump'], self.next_quad())
+            self.push_error_operand()
+            return
+        self.emit('=', value, None, frame['temporary'], 'bool')
+        self.patch(frame['jump'], self.next_quad())
+        self.push_operand(frame['temporary'], 'bool')
 
     def check_condition(self, keyword):
         """Pop the condition of an ``if``/``while`` and require it to be boolean."""

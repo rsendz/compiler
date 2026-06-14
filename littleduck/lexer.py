@@ -14,6 +14,7 @@ RESERVED = {
     'int': 'INT',
     'float': 'FLOAT',
     'string': 'STRING',
+    'bool': 'BOOL',
     'void': 'VOID',
     'if': 'IF',
     'else': 'ELSE',
@@ -22,6 +23,11 @@ RESERVED = {
     'print': 'PRINT',
     'return': 'RETURN',
     'break': 'BREAK',
+    'true': 'TRUE',
+    'false': 'FALSE',
+    'and': 'OP_AND',
+    'or': 'OP_OR',
+    'not': 'OP_NOT',
 }
 
 tokens = [

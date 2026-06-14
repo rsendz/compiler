@@ -13,10 +13,13 @@ this module is the single source of truth for the address convention.
 # First address of every region, keyed by "<scope>_<type>".
 REGION_BASE = {
     'global_int': 1000, 'global_float': 2000, 'global_str': 3000,
-    'global_void': 4000,
+    'global_bool': 4000, 'global_void': 5000,
     'local_int': 7000, 'local_float': 8000, 'local_str': 9000,
-    'temp_int': 12000, 'temp_float': 13000, 'temp_bool': 14000,
+    'local_bool': 10000,
+    'temp_int': 12000, 'temp_float': 13000, 'temp_str': 14000,
+    'temp_bool': 15000,
     'cte_int': 17000, 'cte_float': 18000, 'cte_str': 19000,
+    'cte_bool': 20000,
 }
 
 # Number of addresses each region can hand out before invading the next one.
@@ -24,8 +27,8 @@ REGION_SIZE = 1000
 
 # Regions saved and restored around a function, so that locals and temporaries
 # of every function start at the beginning of their region.
-FUNCTION_REGIONS = ('local_int', 'local_float', 'local_str',
-                    'temp_int', 'temp_float', 'temp_bool')
+FUNCTION_REGIONS = ('local_int', 'local_float', 'local_str', 'local_bool',
+                    'temp_int', 'temp_float', 'temp_str', 'temp_bool')
 
 
 def region_name(scope_kind, value_type):
@@ -79,20 +82,25 @@ class MemorySpace:
         self._saved_frames = []
 
     # -- Allocation --------------------------------------------------------
-    def allocate(self, scope_kind, value_type, name=None):
-        """Reserve the next address of a region and return it."""
+    def allocate(self, scope_kind, value_type, name=None, slots=1):
+        """Reserve ``slots`` consecutive addresses and return the first one.
+
+        An array asks for as many slots as it has elements; everything else
+        asks for one. The slots are consecutive by construction, which is what
+        lets an element be reached as ``base + index`` at run time.
+        """
         region = region_name(scope_kind, value_type)
         if region not in REGION_BASE:
             # Unsupported scope/type combination: fall back to a void region so
             # that translation can continue instead of crashing.
             region = 'global_void'
         offset = self.counters[region]
-        if offset >= REGION_SIZE:
+        if offset + slots > REGION_SIZE:
             self._errors.add_semantic(
                 "Semantic error: memory region '%s' ran out of addresses"
                 % region)
             return REGION_BASE[region]
-        self.counters[region] += 1
+        self.counters[region] += slots
         address = REGION_BASE[region] + offset
         if name is not None:
             self.names[address] = name
@@ -103,7 +111,8 @@ class MemorySpace:
         key = (value_type, value)
         if key in self.constants:
             return self.constants[key]['address']
-        address = self.allocate('cte', value_type, name=repr(value))
+        address = self.allocate('cte', value_type,
+                                name=format_constant(value))
         self.constants[key] = {'address': address, 'type': value_type,
                                'value': value}
         return address
@@ -118,8 +127,7 @@ class MemorySpace:
         self.temp_counter += 1
         short_name = 't%d' % self.temp_counter
         unique_name = '%s_%s' % (short_name, scope)
-        region_type = 'bool' if value_type == 'bool' else value_type
-        address = self.allocate('temp', region_type, name=short_name)
+        address = self.allocate('temp', value_type, name=short_name)
         self.temporaries[unique_name] = {'address': address,
                                          'type': value_type}
         return unique_name
@@ -134,7 +142,7 @@ class MemorySpace:
         return sorted(self.constants.values(), key=lambda c: c['address'])
 
     def constant_counts(self):
-        counts = {'cte_int': 0, 'cte_float': 0, 'cte_str': 0}
+        counts = {'cte_int': 0, 'cte_float': 0, 'cte_str': 0, 'cte_bool': 0}
         for constant in self.constants.values():
             counts[region_name('cte', constant['type'])] += 1
         return counts
@@ -160,3 +168,14 @@ class MemorySpace:
             return
         self.temp_counter, saved = self._saved_frames.pop()
         self.counters.update(saved)
+
+
+def format_constant(value):
+    """Render a constant the way the intermediate representation stores it.
+
+    Booleans are written as the source spells them, so that the file can be
+    read back without having to know the type of every address in advance.
+    """
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    return str(value)
