@@ -59,7 +59,8 @@ class VirtualMachine:
     def _main_memory(self):
         """The temporaries of the main program, which lives in its own frame."""
         return {region: self.program.global_counts.get(region, 0)
-                for region in ('temp_int', 'temp_float', 'temp_bool')}
+                for region in ('temp_int', 'temp_float', 'temp_str',
+                               'temp_bool')}
 
     def _build_operation_table(self):
         return {
@@ -69,6 +70,7 @@ class VirtualMachine:
             '/': self._divide,
             'u+': self._unary(operators.pos),
             'u-': self._unary(operators.neg),
+            'not': self._unary(operators.not_),
             '>': self._arithmetic(operators.gt),
             '<': self._arithmetic(operators.lt),
             '>=': self._arithmetic(operators.ge),

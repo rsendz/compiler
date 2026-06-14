@@ -47,6 +47,10 @@ def parse_constant(text):
     """Convert the stored text of a constant into a Python value."""
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         return unescape(text[1:-1])
+    if text == 'true':
+        return True
+    if text == 'false':
+        return False
     try:
         return float(text) if '.' in text else int(text)
     except ValueError:
