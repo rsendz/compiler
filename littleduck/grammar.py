@@ -128,6 +128,11 @@ def p_Type_string(p):
     p[0] = 'string'
 
 
+def p_Type_bool(p):
+    "Type : BOOL"
+    p[0] = 'bool'
+
+
 # --- Functions -------------------------------------------------------------
 
 def p_FunctionList_more(p):
@@ -511,13 +516,49 @@ def p_ArgList_one(p):
 
 # --- Expressions -----------------------------------------------------------
 
-def p_Expression_relational(p):
-    "Expression : Exp RelOp Exp"
+def p_Expression_or(p):
+    "Expression : Expression OP_OR MarkLogical AndExpression"
+    CONTEXT.finish_short_circuit('or')
+
+
+def p_Expression_and(p):
+    "Expression : AndExpression"
+
+
+def p_AndExpression_and(p):
+    "AndExpression : AndExpression OP_AND MarkLogical NotExpression"
+    CONTEXT.finish_short_circuit('and')
+
+
+def p_AndExpression_not(p):
+    "AndExpression : NotExpression"
+
+
+def p_MarkLogical(p):
+    "MarkLogical :"
+    # p[-1] is the operator token just shifted, so one marker serves both
+    # 'and' and 'or'. It runs before the right operand is parsed, which is the
+    # whole point: the jump that skips that operand must come first.
+    CONTEXT.begin_short_circuit(p[-1])
+
+
+def p_NotExpression_not(p):
+    "NotExpression : OP_NOT NotExpression"
+    _track_line(p, 1)
+    CONTEXT.apply_not()
+
+
+def p_NotExpression_comparison(p):
+    "NotExpression : Comparison"
+
+
+def p_Comparison_relational(p):
+    "Comparison : Exp RelOp Exp"
     CONTEXT.apply_binary(p[2])
 
 
-def p_Expression_simple(p):
-    "Expression : Exp"
+def p_Comparison_simple(p):
+    "Comparison : Exp"
 
 
 def p_RelOp(p):
@@ -643,6 +684,15 @@ def p_Constant_string(p):
     _track_line(p, 1)
     CONTEXT.memory.constant(p[1], 'string')
     CONTEXT.push_operand(p[1], 'string')
+
+
+def p_Constant_bool(p):
+    """Constant : TRUE
+                | FALSE"""
+    _track_line(p, 1)
+    value = (p[1] == 'true')
+    CONTEXT.memory.constant(value, 'bool')
+    CONTEXT.push_operand(value, 'bool')
 
 
 def p_empty(p):

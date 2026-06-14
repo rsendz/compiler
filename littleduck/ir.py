@@ -10,15 +10,16 @@ resolves each name to a virtual address and writes two files:
     machine loads and runs.
 """
 
-from .memory import region_name
+from .memory import format_constant, region_name
 
 # Sections of the address file, in the order they are written.
 SECTIONS = ('const', 'global', 'funcs', 'quads')
 
-GLOBAL_REGIONS = ('global_int', 'global_float', 'global_str', 'global_void')
-TEMP_REGIONS = ('temp_int', 'temp_float', 'temp_bool')
-CONST_REGIONS = ('cte_int', 'cte_float', 'cte_str')
-LOCAL_REGIONS = ('local_int', 'local_float', 'local_str')
+GLOBAL_REGIONS = ('global_int', 'global_float', 'global_str', 'global_bool',
+                  'global_void')
+TEMP_REGIONS = ('temp_int', 'temp_float', 'temp_str', 'temp_bool')
+CONST_REGIONS = ('cte_int', 'cte_float', 'cte_str', 'cte_bool')
+LOCAL_REGIONS = ('local_int', 'local_float', 'local_str', 'local_bool')
 
 EMPTY_FIELD = -1
 
@@ -56,7 +57,10 @@ class IntermediateCode:
                 return program.variables[operand].address
 
         # Anything left is a literal; its type follows from the Python value.
-        if isinstance(operand, bool) or isinstance(operand, int):
+        # bool is checked first: in Python it is a subclass of int.
+        if isinstance(operand, bool):
+            return context.memory.constant(operand, 'bool')
+        if isinstance(operand, int):
             return context.memory.constant(operand, 'int')
         if isinstance(operand, float):
             return context.memory.constant(operand, 'float')
@@ -155,7 +159,8 @@ class IntermediateCode:
         The columns are padded for readability; the loader splits on
         whitespace, so the padding is harmless.
         """
-        return ["%-24s %d" % (constant['value'], constant['address'])
+        return ["%-24s %d" % (format_constant(constant['value']),
+                              constant['address'])
                 for constant in self.context.memory.sorted_constants()]
 
     def _global_lines(self):
@@ -191,7 +196,8 @@ class IntermediateCode:
                  "# Constants: value  address"]
         for constant in self.context.memory.sorted_constants():
             lines.append("const\t%s\t%d"
-                         % (constant['value'], constant['address']))
+                         % (format_constant(constant['value']),
+                            constant['address']))
         lines.append("# Quadruples")
         lines.append("%-4s %-9s %-14s %-14s %-14s %-8s"
                      % ("#", "op", "left", "right", "result", "type"))

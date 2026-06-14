@@ -8,7 +8,8 @@ and ``int = float`` illegal.
 
 TYPES = ('int', 'float', 'string', 'bool')
 NUMERIC = ('int', 'float')
-OPERATORS = ('+', '-', '*', '/', '<', '>', '<=', '>=', '==', '!=', '=')
+OPERATORS = ('+', '-', '*', '/', '<', '>', '<=', '>=', '==', '!=', '=',
+             'and', 'or')
 
 
 def build_cube():
@@ -35,18 +36,27 @@ def build_cube():
             for right in NUMERIC:
                 cube[left][right][op] = 'bool'
 
-    # Equality: numeric against numeric, or string against string.
+    # Equality: numeric against numeric, string against string, or two
+    # booleans.
     for op in ('==', '!='):
         for left in NUMERIC:
             for right in NUMERIC:
                 cube[left][right][op] = 'bool'
         cube['string']['string'][op] = 'bool'
+        cube['bool']['bool'][op] = 'bool'
+
+    # Logical conjunction and disjunction: booleans only. There is no implicit
+    # conversion from a number, so 'if (n and m)' is rejected rather than
+    # quietly reading zero as false.
+    for op in ('and', 'or'):
+        cube['bool']['bool'][op] = 'bool'
 
     # Assignment. int = float stays an error: it would lose precision.
     cube['int']['int']['='] = 'int'
     cube['float']['float']['='] = 'float'
     cube['float']['int']['='] = 'float'
     cube['string']['string']['='] = 'string'
+    cube['bool']['bool']['='] = 'bool'
 
     return cube
 
@@ -66,3 +76,14 @@ def result_type(left_type, operator, right_type):
         return CUBE[left_type][right_type][operator]
     except KeyError:
         return 'error'
+
+
+def negation_type(operand_type):
+    """The result of ``not`` over ``operand_type``, or ``'error'``.
+
+    ``not`` is the only logical operator with a single operand, so it does not
+    fit the cube and gets its own rule.
+    """
+    if operand_type == 'error':
+        return 'error'
+    return 'bool' if operand_type == 'bool' else 'error'
