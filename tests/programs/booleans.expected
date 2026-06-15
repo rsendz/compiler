@@ -1,0 +1,16 @@
+ready=true done=false
+not ready=false
+ready and done=false
+ready or done=true
+both=true
+n is a single positive digit
+n is outside 0..5
+minus n is not positive
+evaluated 1
+short-circuit and gave false
+evaluated 3
+short-circuit or gave true
+evaluated 5
+evaluated 6
+full and gave false
+done=true false

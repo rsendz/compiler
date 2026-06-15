@@ -1,0 +1,59 @@
+# Declarable bool variables, the true/false constants, and the logical
+# operators. 'and' and 'or' short-circuit: the noisy() calls below only print
+# when the left operand did not already settle the answer.
+
+program booleans;
+
+var ready, done, both : bool;
+    n : int;
+
+bool noisy(tag : int, answer : bool) [
+    {
+        print("evaluated ", tag);
+        return answer;
+    }
+];
+
+bool isPositive(value : int) [
+    {
+        return value > 0;
+    }
+];
+
+main {
+    ready = true;
+    done = false;
+
+    print("ready=", ready, " done=", done);
+    print("not ready=", not ready);
+    print("ready and done=", ready and done);
+    print("ready or done=", ready or done);
+
+    both = ready and not done;
+    print("both=", both);
+
+    n = 7;
+    if (n > 0 and n < 10) {
+        print("n is a single positive digit");
+    };
+    if (n < 0 or n > 5) {
+        print("n is outside 0..5");
+    };
+    if (not isPositive(0 - n)) {
+        print("minus n is not positive");
+    };
+
+    # 'false and _' never evaluates the right side, and neither does
+    # 'true or _': only the tags of the operands that ran are printed.
+    both = noisy(1, false) and noisy(2, true);
+    print("short-circuit and gave ", both);
+    both = noisy(3, true) or noisy(4, false);
+    print("short-circuit or gave ", both);
+
+    # Both sides run when the left one does not decide the result.
+    both = noisy(5, true) and noisy(6, false);
+    print("full and gave ", both);
+
+    done = ready == true;
+    print("done=", done, " ", ready != done);
+} end
