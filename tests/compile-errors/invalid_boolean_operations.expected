@@ -1,0 +1,14 @@
+Compilation errors:
+
+9 semantic error(s):
+  - Semantic error: cannot assign int to 'flag' (bool) (line 12)
+  - Semantic error: cannot assign bool to 'n' (int) (line 13)
+  - Semantic error: the left operand of 'and' must be bool, not int (line 14)
+  - Semantic error: the right operand of 'or' must be bool, not string (line 15)
+  - Semantic error: 'not' expects bool but got int (line 16)
+  - Semantic error: invalid operation 'bool + int' (line 17)
+  - Semantic error: invalid operation 'bool > bool' (line 18)
+  - Semantic error: the 'if' condition must be boolean (line 19)
+  - Semantic error: unary '-' does not apply to bool (line 22)
+
+Total: 0 lexical + 0 syntax + 9 semantic

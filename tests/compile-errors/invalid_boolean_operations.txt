@@ -1,0 +1,23 @@
+# Booleans do not convert to or from anything else: the logical operators
+# demand bool on both sides, arithmetic refuses bool, and a bool cannot be
+# assigned a number.
+
+program invalidBooleans;
+
+var flag, other : bool;
+    n : int;
+    s : string;
+
+main {
+    flag = 1;
+    n = true;
+    flag = n and other;
+    flag = other or s;
+    flag = not n;
+    n = flag + 1;
+    flag = flag > other;
+    if (n) {
+        print("not a boolean condition");
+    };
+    flag = -other;
+} end
