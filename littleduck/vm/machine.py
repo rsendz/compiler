@@ -87,6 +87,9 @@ class VirtualMachine:
             'gosub': self._call,
             'return': self._return,
             'endfun': self._end_function,
+            'ver': self._verify,
+            'arrayread': self._array_read,
+            'arraywrite': self._array_write,
             'print': self._print,
             'newline': self._newline,
             'end': self._end,
@@ -113,6 +116,35 @@ class VirtualMachine:
 
     def _assign(self, left, right, result):
         self.memory.write(result, self.memory.read(left))
+
+    # -- Arrays ------------------------------------------------------------
+    def _verify(self, left, right, result):
+        """Check that an index falls inside its array.
+
+        ``left`` is the address holding the index; ``right`` and ``result``
+        are the bounds themselves, the lower one inclusive and the upper one
+        exclusive.
+        """
+        index = self.memory.read(left)
+        if not right <= index < result:
+            raise VMRuntimeError(
+                "array index %s is out of bounds (valid range is %d..%d)"
+                % (index, right, result - 1), self.current_quad_number)
+
+    def _array_read(self, left, right, result):
+        """``result = base[index]``, with ``left`` the base of the array.
+
+        The base is the address of the first element, so the element itself
+        lives at ``base + index``. The preceding ``ver`` has already checked
+        that the sum stays inside the array.
+        """
+        self.memory.write(result,
+                          self.memory.read(left + self.memory.read(right)))
+
+    def _array_write(self, left, right, result):
+        """``base[index] = value``, with ``result`` the base of the array."""
+        self.memory.write(result + self.memory.read(right),
+                          self.memory.read(left))
 
     # -- Jumps -------------------------------------------------------------
     def _goto(self, left, right, result):
