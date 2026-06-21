@@ -8,16 +8,31 @@ address range.
 
 
 class Variable:
-    """A declared variable or parameter, together with its virtual address."""
+    """A declared variable or parameter, together with its virtual address.
 
-    __slots__ = ('name', 'type', 'scope', 'is_parameter', 'address')
+    An array is the same thing with a ``size``: its address is that of its
+    first element, and the remaining ones follow immediately after it.
+    """
 
-    def __init__(self, name, var_type, scope, address, is_parameter=False):
+    __slots__ = ('name', 'type', 'scope', 'is_parameter', 'address', 'size')
+
+    def __init__(self, name, var_type, scope, address, is_parameter=False,
+                 size=None):
         self.name = name
         self.type = var_type
         self.scope = scope
         self.address = address
         self.is_parameter = is_parameter
+        self.size = size
+
+    @property
+    def is_array(self):
+        return self.size is not None
+
+    @property
+    def slots(self):
+        """How many consecutive addresses this variable occupies."""
+        return self.size if self.size is not None else 1
 
 
 class FunctionEntry:
@@ -44,9 +59,9 @@ class FunctionEntry:
         self.all_returns_valid = True
         self.memory = {}          # region name -> number of slots needed
 
-    def reserve(self, region):
-        """Record that this scope needs one more slot in ``region``."""
-        self.memory[region] = self.memory.get(region, 0) + 1
+    def reserve(self, region, slots=1):
+        """Record that this scope needs ``slots`` more addresses in ``region``."""
+        self.memory[region] = self.memory.get(region, 0) + slots
 
 
 class FunctionDirectory:

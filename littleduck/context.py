@@ -7,7 +7,7 @@ compilation starts from a clean slate by calling :meth:`CompilationContext.reset
 """
 
 from .errors import ErrorLog
-from .memory import MemorySpace
+from .memory import MemorySpace, region_name
 from .quadruples import QuadrupleList
 from .semantics import negation_type, result_type
 from .symbols import FunctionDirectory, Variable
@@ -92,8 +92,7 @@ class CompilationContext:
         name = self.memory.new_temporary(value_type, scope)
         entry = self.functions.get(scope)
         if entry is not None:
-            entry.reserve('temp_%s' % ('str' if value_type == 'string'
-                                       else value_type))
+            entry.reserve(region_name('temp', value_type))
         return name
 
     def scope_kind(self):
@@ -102,13 +101,17 @@ class CompilationContext:
                 == self.functions.program_name else 'local')
 
     # -- Declarations ------------------------------------------------------
-    def declare_variables(self, names, var_type, line):
-        """Add the identifiers collected by a declaration to the current scope."""
+    def declare_variables(self, declarators, var_type, line):
+        """Add the declarators collected by a declaration to the current scope.
+
+        Each declarator is a ``(name, size)`` pair, with ``size`` ``None`` for
+        a plain variable and the element count for an array.
+        """
         entry = self.functions.current_entry
         if entry is None:
             return
         kind = self.scope_kind()
-        for name in names:
+        for name, size in declarators:
             if name in entry.variables:
                 self.semantic_error(
                     "Semantic error: variable '%s' is already declared in "
@@ -117,12 +120,17 @@ class CompilationContext:
                 self.semantic_error(
                     "Semantic error: variable '%s' cannot share its name with "
                     "a function" % name, line)
+            elif size is not None and size < 1:
+                self.semantic_error(
+                    "Semantic error: array '%s' must have at least one "
+                    "element" % name, line)
             else:
-                address = self.memory.allocate(kind, var_type, name=name)
+                slots = 1 if size is None else size
+                address = self.memory.allocate(kind, var_type, name=name,
+                                               slots=slots)
                 entry.variables[name] = Variable(name, var_type, entry.name,
-                                                 address)
-                entry.reserve('%s_%s' % (kind, 'str' if var_type == 'string'
-                                         else var_type))
+                                                 address, size=size)
+                entry.reserve(region_name(kind, var_type), slots)
 
     def declare_parameter(self, name, param_type, line):
         entry = self.functions.current_entry
@@ -141,8 +149,82 @@ class CompilationContext:
             entry.variables[name] = Variable(name, param_type, entry.name,
                                              address, is_parameter=True)
             entry.parameters.append((name, param_type))
-            entry.reserve('local_%s' % ('str' if param_type == 'string'
-                                        else param_type))
+            entry.reserve(region_name('local', param_type))
+
+    # -- Arrays ------------------------------------------------------------
+    def _indexable(self, name, line):
+        """Look up ``name`` and require it to be an array, or report why not."""
+        variable = self.functions.lookup_variable(name)
+        if variable is None:
+            self.semantic_error(
+                "Semantic error: variable '%s' is not declared" % name, line)
+            return None
+        if not variable.is_array:
+            self.semantic_error(
+                "Semantic error: '%s' is not an array and cannot be indexed"
+                % name, line)
+            return None
+        return variable
+
+    def _verify_index(self, variable, line):
+        """Pop the index expression and emit the bounds check for it.
+
+        Returns the index operand, or None when it was not usable. The check
+        is a quadruple of its own -- the index is an arbitrary expression, so
+        whether it falls inside the array is only known while the program runs.
+        """
+        index = self.pop_operand()
+        if index is None:
+            return None
+        value, value_type = index
+        if value_type != 'int':
+            if value_type != 'error':
+                self.semantic_error(
+                    "Semantic error: the index of '%s' must be int, not %s"
+                    % (variable.name, value_type), line)
+            return None
+        # Lower and upper bound travel in the quadruple as plain numbers, not
+        # as addresses: they are fixed at compile time by the declaration.
+        self.emit('ver', value, 0, variable.size, '-')
+        return value
+
+    def read_element(self, name, line):
+        """Emit the read of ``name[index]`` and push the result."""
+        variable = self._indexable(name, line)
+        if variable is None:
+            self.pop_operand()
+            self.push_error_operand()
+            return
+        index = self._verify_index(variable, line)
+        if index is None:
+            self.push_error_operand()
+            return
+        temporary = self.new_temporary(variable.type)
+        self.emit('arrayread', name, index, temporary, variable.type)
+        self.push_operand(temporary, variable.type)
+
+    def write_element(self, name, line):
+        """Emit the write of ``name[index] = value``.
+
+        Both expressions are already on the operand stack: the index was
+        parsed first, so the value is the one on top.
+        """
+        value = self.pop_operand()
+        variable = self._indexable(name, line)
+        if variable is None:
+            self.pop_operand()
+            return
+        index = self._verify_index(variable, line)
+        if index is None or value is None:
+            return
+        source, source_type = value
+        if result_type(variable.type, '=', source_type) == 'error':
+            if source_type != 'error':
+                self.semantic_error(
+                    "Semantic error: cannot assign %s to an element of '%s' "
+                    "(%s)" % (source_type, name, variable.type), line)
+            return
+        self.emit('arraywrite', source, index, name, variable.type)
 
     # -- Expressions -------------------------------------------------------
     def apply_binary(self, operator):
