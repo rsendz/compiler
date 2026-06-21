@@ -102,13 +102,23 @@ def p_VarDecl(p):
 
 
 def p_IdList_more(p):
-    "IdList : IdList COMMA IDENTIFIER"
-    CONTEXT.pending_ids.append(p[3])
+    "IdList : IdList COMMA Declarator"
 
 
 def p_IdList_one(p):
-    "IdList : IDENTIFIER"
-    CONTEXT.pending_ids.append(p[1])
+    "IdList : Declarator"
+
+
+def p_Declarator_scalar(p):
+    "Declarator : IDENTIFIER"
+    CONTEXT.pending_ids.append((p[1], None))
+
+
+def p_Declarator_array(p):
+    "Declarator : IDENTIFIER LBRACKET CONST_INT RBRACKET"
+    # The size is a literal, so every array has a length fixed at compile time
+    # and the elements can be laid out consecutively from the base address.
+    CONTEXT.pending_ids.append((p[1], p[3]))
 
 
 # --- Types -----------------------------------------------------------------
@@ -304,6 +314,12 @@ def p_Assignment(p):
             "Semantic error: variable '%s' is not declared" % target, line)
         CONTEXT.pop_operand()
         return
+    if variable.is_array:
+        CONTEXT.semantic_error(
+            "Semantic error: array '%s' can only be assigned one element at "
+            "a time" % target, line)
+        CONTEXT.pop_operand()
+        return
     operand = CONTEXT.pop_operand()
     if operand is None:
         return
@@ -315,6 +331,11 @@ def p_Assignment(p):
                 % (value_type, target, variable.type), line)
         return
     CONTEXT.emit('=', value, None, target, variable.type)
+
+
+def p_Assignment_element(p):
+    "Assignment : IDENTIFIER LBRACKET Expression RBRACKET OP_ASSIGN Expression SEMICOLON"
+    CONTEXT.write_element(p[1], _line(p, 1))
 
 
 # --- Conditionals ----------------------------------------------------------
@@ -625,8 +646,18 @@ def p_Atom_identifier(p):
         CONTEXT.semantic_error(
             "Semantic error: variable '%s' is not declared" % p[1], line)
         CONTEXT.push_error_operand()
+    elif variable.is_array:
+        CONTEXT.semantic_error(
+            "Semantic error: array '%s' can only be used one element at a "
+            "time" % p[1], line)
+        CONTEXT.push_error_operand()
     else:
         CONTEXT.push_operand(p[1], variable.type)
+
+
+def p_Atom_element(p):
+    "Atom : IDENTIFIER LBRACKET Expression RBRACKET"
+    CONTEXT.read_element(p[1], _track_line(p, 1))
 
 
 def p_Atom_constant(p):

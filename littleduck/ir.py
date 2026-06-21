@@ -125,13 +125,20 @@ class IntermediateCode:
                     self.resolve(quad.result, self._callee_of_param(index))]
         if operator in ('endfun', 'end', 'newline'):
             return [operator, EMPTY_FIELD, EMPTY_FIELD, EMPTY_FIELD]
+        if operator == 'ver':
+            # The bounds are plain numbers fixed by the declaration, not
+            # addresses: only the index has to be read from memory.
+            return [operator, self.resolve(quad.left, scope), quad.right,
+                    quad.result]
         if operator == 'print':
             return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
                     EMPTY_FIELD]
         if operator == 'return':
             return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
                     self.resolve(quad.result, scope)]
-        # Assignment, arithmetic, unary and relational operators.
+        # Assignment, arithmetic, unary, logical, relational and array
+        # operators. An array name resolves to the address of its first
+        # element, which is the base the index is added to.
         return [operator,
                 self.resolve(quad.left, scope),
                 self.resolve(quad.right, scope),
@@ -147,7 +154,7 @@ class IntermediateCode:
         counts = {}
         for variable in self.context.functions.global_variables().values():
             region = region_name('global', variable.type)
-            counts[region] = counts.get(region, 0) + 1
+            counts[region] = counts.get(region, 0) + variable.slots
         for entry in self.context.functions.functions():
             region = region_name('global', entry.return_type)
             counts[region] = counts.get(region, 0) + 1
