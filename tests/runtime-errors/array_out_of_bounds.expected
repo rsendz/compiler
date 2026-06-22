@@ -1,0 +1,5 @@
+values[0] = 0
+values[1] = 10
+values[2] = 20
+values[3] = 
+Runtime error (quadruple 14): array index 3 is out of bounds (valid range is 0..2)

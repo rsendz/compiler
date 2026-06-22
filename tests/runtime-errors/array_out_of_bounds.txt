@@ -1,0 +1,20 @@
+# The index is an expression, so it is checked while the program runs: the
+# loop below walks one element past the end of the array.
+
+program arrayOutOfBounds;
+var values[3] : int;
+    i : int;
+main
+{   i = 0;
+    do {
+        values[i] = i * 10;
+        i = i + 1;
+    } while (i < 3);
+
+    i = 0;
+    do {
+        print("values[", i, "] = ", values[i]);
+        i = i + 1;
+    } while (i < 4);
+}
+end
