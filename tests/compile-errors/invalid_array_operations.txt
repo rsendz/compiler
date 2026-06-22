@@ -1,0 +1,21 @@
+# An array is only ever touched one element at a time: it cannot be assigned,
+# read or printed whole, its index must be an int, and the element type still
+# has to match. Indexing something that is not an array is an error too.
+
+program invalidArrays;
+
+var numbers[4] : int;
+    empty[0] : int;
+    plain : int;
+    ratio : float;
+
+main {
+    numbers = 1;
+    plain = numbers;
+    plain[0] = 1;
+    numbers[ratio] = 1;
+    numbers["first"] = 1;
+    numbers[0] = "text";
+    print(numbers);
+    plain = missing[0];
+} end

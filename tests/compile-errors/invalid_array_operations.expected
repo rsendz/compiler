@@ -1,0 +1,14 @@
+Compilation errors:
+
+9 semantic error(s):
+  - Semantic error: array 'empty' must have at least one element (line 8)
+  - Semantic error: array 'numbers' can only be assigned one element at a time (line 13)
+  - Semantic error: array 'numbers' can only be used one element at a time (line 14)
+  - Semantic error: 'plain' is not an array and cannot be indexed (line 15)
+  - Semantic error: the index of 'numbers' must be int, not float (line 16)
+  - Semantic error: the index of 'numbers' must be int, not string (line 17)
+  - Semantic error: cannot assign string to an element of 'numbers' (int) (line 18)
+  - Semantic error: array 'numbers' can only be used one element at a time (line 19)
+  - Semantic error: variable 'missing' is not declared (line 20)
+
+Total: 0 lexical + 0 syntax + 9 semantic
