@@ -1,0 +1,83 @@
+# One-dimensional arrays: declaration with a fixed size, indexed reads and
+# writes with an arbitrary expression as the index, arrays of every type, and
+# an array local to a function.
+
+program arrays;
+
+var values[6] : int;
+    names[3] : string;
+    ratios[3] : float;
+    flags[2] : bool;
+    i, j, swap, total : int;
+
+int sumOfSquares(count : int) [
+    var squares[4] : int;
+        k, total : int;
+    {
+        k = 0;
+        do {
+            squares[k] = k * k;
+            k = k + 1;
+        } while (k < count);
+
+        total = 0;
+        k = 0;
+        do {
+            total = total + squares[k];
+            k = k + 1;
+        } while (k < count);
+        return total;
+    }
+];
+
+main {
+    values[0] = 5;
+    values[1] = 3;
+    values[2] = 9;
+    values[3] = 1;
+    values[4] = 7;
+    values[5] = 2;
+
+    # Bubble sort, in place. The index is an expression, so which element is
+    # read is only known while the program runs.
+    i = 0;
+    do {
+        j = 0;
+        do {
+            if (values[j] > values[j + 1]) {
+                swap = values[j];
+                values[j] = values[j + 1];
+                values[j + 1] = swap;
+            };
+            j = j + 1;
+        } while (j < 5 - i);
+        i = i + 1;
+    } while (i < 5);
+
+    i = 0;
+    total = 0;
+    do {
+        print("values[", i, "] = ", values[i]);
+        total = total + values[i];
+        i = i + 1;
+    } while (i < 6);
+    print("total = ", total);
+
+    names[0] = "alpha";
+    names[1] = "beta";
+    names[2] = names[0];
+    print(names[2], " ", names[1]);
+
+    ratios[0] = 1.5;
+    ratios[1] = ratios[0] * 2.0;
+    ratios[2] = ratios[1] / 4;
+    print("ratios: ", ratios[0], " ", ratios[1], " ", ratios[2]);
+
+    flags[0] = true;
+    flags[1] = not flags[0] or values[0] < values[5];
+    print("flags: ", flags[0], " ", flags[1]);
+
+    # Every call gets its own frame, so the local array starts empty each time.
+    print("sumOfSquares(4) = ", sumOfSquares(4));
+    print("sumOfSquares(2) = ", sumOfSquares(2));
+} end
