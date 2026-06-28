@@ -20,6 +20,7 @@ class Program:
         self.functions = {}         # name -> {'start', 'type', 'params', 'memory'}
         self.function_at = {}       # start quadruple -> function name
         self.quads = []             # [operator, left, right, result]
+        self.lines = []             # source line of each quadruple
 
 
 def unescape(text):
@@ -115,3 +116,6 @@ def _read_quadruple(program, fields):
         return
     operator, left, right, result = fields[1], fields[2], fields[3], fields[4]
     program.quads.append([operator, int(left), int(right), int(result)])
+    # The source line is kept beside the quadruples rather than inside them,
+    # so the machine can keep unpacking a quadruple into its four fields.
+    program.lines.append(int(fields[5]) if len(fields) > 5 else 0)

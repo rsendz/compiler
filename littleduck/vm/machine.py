@@ -43,6 +43,8 @@ class VirtualMachine:
             except VMRuntimeError as error:
                 if error.quad_number is None:
                     error.quad_number = self.current_quad_number
+                if not error.source_line:
+                    error.source_line = self.current_source_line
                 raise
             # An operation either returns the quadruple to jump to (1-based) or
             # None, meaning "carry on with the next one".
@@ -52,6 +54,14 @@ class VirtualMachine:
     @property
     def current_quad_number(self):
         return self.instruction_pointer + 1
+
+    @property
+    def current_source_line(self):
+        """The source line the running quadruple was generated from."""
+        lines = self.program.lines
+        if 0 <= self.instruction_pointer < len(lines):
+            return lines[self.instruction_pointer]
+        return 0
 
     def output_text(self):
         return ''.join(self._output)
