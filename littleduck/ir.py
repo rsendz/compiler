@@ -8,6 +8,11 @@ resolves each name to a virtual address and writes two files:
 ``<base>-addresses.txt``
     addresses only, preceded by the memory header. This is what the virtual
     machine loads and runs.
+
+Both files carry the source line each quadruple came from, in a last column.
+The machine ignores it while running and quotes it when something goes wrong,
+which is what lets a fault name the line of the program rather than only the
+number of a quadruple.
 """
 
 from .memory import format_constant, region_name
@@ -206,17 +211,24 @@ class IntermediateCode:
                          % (format_constant(constant['value']),
                             constant['address']))
         lines.append("# Quadruples")
-        lines.append("%-4s %-9s %-14s %-14s %-14s %-8s"
-                     % ("#", "op", "left", "right", "result", "type"))
+        lines.append("%-4s %-9s %-14s %-14s %-14s %-8s %s"
+                     % ("#", "op", "left", "right", "result", "type", "line"))
         for number, quad in enumerate(self.context.quads, start=1):
-            lines.append("%-4d %-9s %-14s %-14s %-14s %-8s"
+            lines.append("%-4d %-9s %-14s %-14s %-14s %-8s %d"
                          % (number, quad.operator, _field(quad.left),
                             _field(quad.right), _field(quad.result),
-                            _field(quad.result_type)))
+                            _field(quad.result_type), quad.line))
         return lines
 
     def as_addresses(self):
-        """The executable listing: memory header plus quadruples in addresses."""
+        """The executable listing: memory header plus quadruples in addresses.
+
+        The quadruples are translated first even though they are written last:
+        resolving an operand can register a constant that was not seen while
+        parsing, and the ``const`` section has to list it.
+        """
+        rows = self.to_addresses()
+
         lines = ["const"]
         lines += self._constant_lines()
         lines += ["", "global"]
@@ -226,11 +238,12 @@ class IntermediateCode:
         lines += ["", "quads"]
         # A column header the loader skips, since its first field is not a
         # quadruple number.
-        lines.append("%-4s %-9s %-8s %-8s %-8s"
-                     % ("#", "op", "left", "right", "result"))
-        for number, row in enumerate(self.to_addresses(), start=1):
-            lines.append("%-4d %-9s %-8d %-8d %-8d"
-                         % (number, row[0], row[1], row[2], row[3]))
+        lines.append("%-4s %-9s %-8s %-8s %-8s %s"
+                     % ("#", "op", "left", "right", "result", "line"))
+        for number, (row, quad) in enumerate(zip(rows, self.context.quads),
+                                             start=1):
+            lines.append("%-4d %-9s %-8d %-8d %-8d %d"
+                         % (number, row[0], row[1], row[2], row[3], quad.line))
         return lines
 
     def write(self, base_name):

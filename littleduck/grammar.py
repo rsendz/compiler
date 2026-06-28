@@ -41,7 +41,13 @@ def _line(p, index):
 
 
 def _track_line(p, index):
-    """Remember the line being parsed, for errors raised by epsilon markers."""
+    """Remember the line being parsed, and return it.
+
+    Every quadruple is stamped with this line, and the epsilon markers -- which
+    have no source position of their own -- report their errors against it. A
+    negative index reaches back to a symbol already on the parser stack, which
+    is how a marker names the token that introduced it.
+    """
     line = _line(p, index)
     if line:
         CONTEXT.current_line = line
@@ -52,6 +58,7 @@ def _track_line(p, index):
 
 def p_ProgramHeader(p):
     "ProgramHeader : PROGRAM IDENTIFIER"
+    _track_line(p, 1)
     CONTEXT.functions.declare_program(p[2])
     # The first quadruple jumps to the main body; its target is patched by
     # MarkMain, once the functions have been generated.
@@ -70,6 +77,7 @@ def p_MarkMain(p):
 def p_Program(p):
     ("Program : ProgramHeader SEMICOLON OptVars FunctionList "
      "MAIN MarkMain Body END")
+    _track_line(p, 8)
     CONTEXT.emit('end', None, None, None, '-')
 
 
@@ -159,7 +167,7 @@ def p_FunctionHeader(p):
     # to the directory and becomes the current scope, so its parameters and
     # locals land in its own tables.
     return_type, name = p[1], p[2]
-    line = _line(p, 2)
+    line = _track_line(p, 2)
     p[0] = name
     directory = CONTEXT.functions
 
@@ -231,6 +239,7 @@ def p_MarkFunctionBody(p):
 def p_Function(p):
     ("Function : FunctionHeader LPAREN OptParams RPAREN LBRACKET OptVars "
      "MarkFunctionBody Body RBRACKET SEMICOLON")
+    _track_line(p, 9)
     entry = CONTEXT.functions.current_entry
     if entry is not None and entry.is_function:
         if entry.return_type != 'void' and not entry.has_return:
@@ -307,7 +316,7 @@ def p_Statement(p):
 def p_Assignment(p):
     "Assignment : IDENTIFIER OP_ASSIGN Expression SEMICOLON"
     target = p[1]
-    line = _line(p, 1)
+    line = _track_line(p, 1)
     variable = CONTEXT.functions.lookup_variable(target)
     if variable is None:
         CONTEXT.semantic_error(
@@ -335,7 +344,7 @@ def p_Assignment(p):
 
 def p_Assignment_element(p):
     "Assignment : IDENTIFIER LBRACKET Expression RBRACKET OP_ASSIGN Expression SEMICOLON"
-    CONTEXT.write_element(p[1], _line(p, 1))
+    CONTEXT.write_element(p[1], _track_line(p, 1))
 
 
 # --- Conditionals ----------------------------------------------------------
@@ -403,9 +412,10 @@ def p_Loop(p):
 
 def p_BreakStatement(p):
     "BreakStatement : BREAK SEMICOLON"
+    line = _track_line(p, 1)
     if not CONTEXT.break_jumps:
         CONTEXT.semantic_error("Semantic error: 'break' outside of a loop",
-                               _line(p, 1))
+                               line)
         return
     CONTEXT.break_jumps[-1].append(CONTEXT.emit_pending_jump('goto'))
 
@@ -414,7 +424,7 @@ def p_BreakStatement(p):
 
 def p_ReturnStatement_value(p):
     "ReturnStatement : RETURN Expression SEMICOLON"
-    line = _line(p, 1)
+    line = _track_line(p, 1)
     entry = CONTEXT.functions.current_entry
     if entry is None or not entry.is_function:
         CONTEXT.semantic_error(
@@ -451,7 +461,7 @@ def p_ReturnStatement_value(p):
 
 def p_ReturnStatement_void(p):
     "ReturnStatement : RETURN SEMICOLON"
-    line = _line(p, 1)
+    line = _track_line(p, 1)
     entry = CONTEXT.functions.current_entry
     if entry is None or not entry.is_function:
         CONTEXT.semantic_error(
@@ -476,6 +486,7 @@ def _push_return_jump():
 
 def p_Print(p):
     "Print : PRINT LPAREN PrintArgList RPAREN SEMICOLON"
+    _track_line(p, 1)
     # Every print ends with a line break of its own.
     CONTEXT.emit('newline', None, None, None, '-')
 
@@ -486,7 +497,8 @@ def p_Print_no_arguments(p):
     # would otherwise cascade into a run of syntax errors into one message
     # pointing at the offending line.
     CONTEXT.semantic_error(
-        "Semantic error: 'print' requires at least one argument", _line(p, 1))
+        "Semantic error: 'print' requires at least one argument",
+        _track_line(p, 1))
 
 
 def p_PrintArgList_more(p):
@@ -509,12 +521,13 @@ def p_PrintArg(p):
 def p_MarkCallStart(p):
     "MarkCallStart :"
     # p[-2] is the IDENTIFIER two symbols back, i.e. the name being called.
+    _track_line(p, -2)
     CONTEXT.start_call(p[-2])
 
 
 def p_Call(p):
     "Call : IDENTIFIER LPAREN MarkCallStart OptArgs RPAREN SEMICOLON"
-    CONTEXT.finish_call(p[1], line=_line(p, 1))
+    CONTEXT.finish_call(p[1], line=_track_line(p, 1))
 
 
 def p_OptArgs_present(p):
@@ -560,6 +573,7 @@ def p_MarkLogical(p):
     # p[-1] is the operator token just shifted, so one marker serves both
     # 'and' and 'or'. It runs before the right operand is parsed, which is the
     # whole point: the jump that skips that operand must come first.
+    _track_line(p, -1)
     CONTEXT.begin_short_circuit(p[-1])
 
 
@@ -575,6 +589,7 @@ def p_NotExpression_comparison(p):
 
 def p_Comparison_relational(p):
     "Comparison : Exp RelOp Exp"
+    _track_line(p, 2)
     CONTEXT.apply_binary(p[2])
 
 
@@ -594,11 +609,13 @@ def p_RelOp(p):
 
 def p_Exp_plus(p):
     "Exp : Exp OP_PLUS Term"
+    _track_line(p, 2)
     CONTEXT.apply_binary('+')
 
 
 def p_Exp_minus(p):
     "Exp : Exp OP_MINUS Term"
+    _track_line(p, 2)
     CONTEXT.apply_binary('-')
 
 
@@ -608,11 +625,13 @@ def p_Exp_term(p):
 
 def p_Term_mult(p):
     "Term : Term OP_MULT Factor"
+    _track_line(p, 2)
     CONTEXT.apply_binary('*')
 
 
 def p_Term_div(p):
     "Term : Term OP_DIV Factor"
+    _track_line(p, 2)
     CONTEXT.apply_binary('/')
 
 
@@ -626,11 +645,13 @@ def p_Factor_parenthesized(p):
 
 def p_Factor_unary_plus(p):
     "Factor : OP_PLUS Atom"
+    _track_line(p, 1)
     CONTEXT.apply_unary('u+')
 
 
 def p_Factor_unary_minus(p):
     "Factor : OP_MINUS Atom"
+    _track_line(p, 1)
     CONTEXT.apply_unary('u-')
 
 
