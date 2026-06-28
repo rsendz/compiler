@@ -58,7 +58,8 @@ class CompilationContext:
     # -- Quadruple emission -----------------------------------------------
     def emit(self, operator, left, right, result, result_type='-'):
         return self.quads.emit(operator, left, right, result, result_type,
-                               self.functions.current_scope)
+                               self.functions.current_scope,
+                               self.current_line)
 
     def next_quad(self):
         return self.quads.next_number()

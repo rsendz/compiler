@@ -5,6 +5,11 @@ While the parser is running the operands are still names -- variables,
 temporaries or literals -- and the scope each quadruple was emitted in is
 recorded alongside it, so that ``littleduck.ir`` can later resolve every name to
 a virtual address.
+
+Each quadruple also remembers the source line it came from. Nothing in the
+translation needs it, but it is what lets a fault reported by the virtual
+machine point back at the program the user wrote rather than only at a
+quadruple number.
 """
 
 # Operators whose numeric fields are quadruple numbers rather than addresses.
@@ -14,15 +19,18 @@ JUMP_OPERATORS = frozenset({'gotomain', 'goto', 'gotof', 'gotot', 'gosub'})
 class Quadruple:
     """A single intermediate-representation instruction."""
 
-    __slots__ = ('operator', 'left', 'right', 'result', 'result_type', 'scope')
+    __slots__ = ('operator', 'left', 'right', 'result', 'result_type', 'scope',
+                 'line')
 
-    def __init__(self, operator, left, right, result, result_type, scope):
+    def __init__(self, operator, left, right, result, result_type, scope,
+                 line=0):
         self.operator = operator
         self.left = left
         self.right = right
         self.result = result
         self.result_type = result_type
         self.scope = scope
+        self.line = line
 
     def __repr__(self):
         return ("Quadruple(%r, %r, %r, %r)"
@@ -47,10 +55,11 @@ class QuadrupleList:
     def clear(self):
         self._items = []
 
-    def emit(self, operator, left, right, result, result_type='-', scope=None):
+    def emit(self, operator, left, right, result, result_type='-', scope=None,
+             line=0):
         """Append a quadruple and return the index it was stored at."""
         self._items.append(
-            Quadruple(operator, left, right, result, result_type, scope))
+            Quadruple(operator, left, right, result, result_type, scope, line))
         return len(self._items) - 1
 
     def next_number(self):
