@@ -1,2 +1,2 @@
 dividing by 0.0
-Runtime error (quadruple 6): division by zero
+Runtime error at line 9 (quadruple 6): division by zero
