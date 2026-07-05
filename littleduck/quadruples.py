@@ -72,3 +72,7 @@ class QuadrupleList:
 
     def last_index(self):
         return len(self._items) - 1
+
+    def replace(self, items):
+        """Swap the whole list, for a pass that rewrote the quadruples."""
+        self._items = list(items)
