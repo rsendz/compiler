@@ -6,9 +6,11 @@
 
 Each ``<name>.txt`` under a suite directory is compiled and run, and everything
 it prints is compared against ``<name>.expected``. The suite a program lives in
-also says how it must finish: programs run to completion, while the two error
-suites must fail. Intermediate representation files are written to a temporary
-directory so a run leaves nothing behind.
+also says how it must finish and how it is compiled: programs run to
+completion, the two error suites must fail, and the programs under
+``optimized`` are compiled with the optimizer's report turned on, so what the
+pass changed is recorded alongside the output. Intermediate representation
+files are written to a temporary directory so a run leaves nothing behind.
 """
 
 import argparse
@@ -24,8 +26,14 @@ TESTS = ROOT / "tests"
 # Suite directory -> exit status every program in it must produce.
 SUITES = {
     "programs": 0,
+    "optimized": 0,
     "compile-errors": 1,
     "runtime-errors": 1,
+}
+
+# Extra command-line arguments for the programs of a suite.
+SUITE_ARGUMENTS = {
+    "optimized": ["--optimize-report"],
 }
 
 EXPECTED_SUFFIX = ".expected"
@@ -46,11 +54,11 @@ def discover(pattern=None):
                 yield suite, source
 
 
-def run(source, workdir):
+def run(suite, source, workdir):
     """Compile and run one program, returning its output and exit status."""
     completed = subprocess.run(
         [sys.executable, str(ROOT / "main.py"), str(source),
-         "--ir-base", str(workdir / "ir")],
+         "--ir-base", str(workdir / "ir")] + SUITE_ARGUMENTS.get(suite, []),
         cwd=ROOT, capture_output=True, text=True)
     return completed.stdout + completed.stderr, completed.returncode
 
@@ -90,7 +98,7 @@ def main(argv=None):
         workdir = pathlib.Path(temporary)
         for suite, source in discover(arguments.pattern):
             name = "%s/%s" % (suite, source.stem)
-            output, status = run(source, workdir)
+            output, status = run(suite, source, workdir)
 
             if arguments.update:
                 source.with_suffix(EXPECTED_SUFFIX).write_text(output)
