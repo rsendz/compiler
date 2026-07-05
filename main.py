@@ -1,6 +1,6 @@
 """Command-line entry point: compile a Little Duck program and run it.
 
-    python main.py [source-file] [--ir-base NAME]
+    python main.py [source-file] [--ir-base NAME] [--no-optimize]
 
 Reads the given source file (``input.txt`` by default), compiles it and, if
 there were no errors, executes the intermediate representation on the virtual
@@ -30,6 +30,12 @@ def parse_arguments(argv):
                         metavar="NAME",
                         help="base name of the generated intermediate "
                              "representation files (default: %(default)s)")
+    parser.add_argument("--no-optimize", dest="optimize",
+                        action="store_false",
+                        help="emit the quadruples exactly as the parser "
+                             "produced them, without the optimization pass")
+    parser.add_argument("--optimize-report", action="store_true",
+                        help="print what the optimization pass changed")
     return parser.parse_args(argv)
 
 
@@ -37,7 +43,8 @@ def main(argv=None):
     arguments = parse_arguments(argv)
 
     try:
-        result = compile_file(arguments.source, arguments.ir_base)
+        result = compile_file(arguments.source, arguments.ir_base,
+                              arguments.optimize)
     except OSError as error:
         print("Could not open the source file '%s': %s"
               % (arguments.source, error))
@@ -46,6 +53,9 @@ def main(argv=None):
     if not result.ok:
         result.print_errors()
         return 1
+
+    if arguments.optimize_report and result.optimization is not None:
+        print("Optimizer: " + result.optimization.summary())
 
     machine = VirtualMachine(load_program(result.ir_path))
     try:

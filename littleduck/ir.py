@@ -202,10 +202,12 @@ class IntermediateCode:
         return lines
 
     # -- Rendering ---------------------------------------------------------
-    def as_names(self):
+    def as_names(self, optimization=None):
         """The readable listing: quadruples with names, for inspection."""
-        lines = ["# Intermediate representation (names) - for inspection only",
-                 "# Constants: value  address"]
+        lines = ["# Intermediate representation (names) - for inspection only"]
+        if optimization is not None:
+            lines.append("# Optimizer: " + optimization.summary())
+        lines.append("# Constants: value  address")
         for constant in self.context.memory.sorted_constants():
             lines.append("const\t%s\t%d"
                          % (format_constant(constant['value']),
@@ -246,18 +248,29 @@ class IntermediateCode:
                          % (number, row[0], row[1], row[2], row[3], quad.line))
         return lines
 
-    def write(self, base_name):
-        """Write both files and return the path of the executable one."""
+    def write(self, base_name, optimization=None):
+        """Write both files and return the path of the executable one.
+
+        The address listing is rendered first: translating an operand can
+        register a constant, and the readable listing prints the constants too.
+        """
         names_path = base_name + "-names.txt"
         addresses_path = base_name + "-addresses.txt"
-        _write_lines(names_path, self.as_names())
-        _write_lines(addresses_path, self.as_addresses())
+        address_lines = self.as_addresses()
+        _write_lines(names_path, self.as_names(optimization))
+        _write_lines(addresses_path, address_lines)
         return addresses_path
 
 
 def _field(value):
-    """Render an empty quadruple field as a dash."""
-    return '-' if value is None or value == '_' else str(value)
+    """Render a quadruple field for the readable listing.
+
+    An empty field becomes a dash, and a constant is spelled the way the source
+    spells it -- 'true' rather than Python's 'True'.
+    """
+    if value is None or value == '_':
+        return '-'
+    return format_constant(value)
 
 
 def _write_lines(path, lines):
