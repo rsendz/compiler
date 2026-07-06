@@ -1,0 +1,56 @@
+# Everything the optimization pass can do, in one program: expressions written
+# entirely in constants, temporaries that only ever hold one value, conditions
+# that are settled before the program starts, and code no path arrives at.
+# The output is the same one the unoptimized program produces.
+
+program constantFolding;
+
+var a, b : int;
+    ratio : float;
+    flag : bool;
+
+int constantMath() [
+    {
+        return 2 * 3 + 4;
+        # Nothing after a return can be reached.
+        print("this line never runs");
+    }
+];
+
+main {
+    # Folded to a single constant, and the temporaries that held the parts of
+    # the expression are left with no reader.
+    a = 2 + 3 * 4 - 1;
+    b = -a;
+    ratio = (1 + 3) / 8;
+    flag = 10 > 3 and not false;
+
+    print("a=", a, " b=", b, " ratio=", ratio, " flag=", flag);
+    print("constantMath()=", constantMath());
+
+    # A condition that cannot change: the branch not taken is generated and
+    # then removed.
+    if (2 > 1) {
+        print("always taken");
+    } else {
+        print("never taken");
+    };
+
+    if (false) {
+        print("never taken either");
+    };
+
+    # 'while (true)' becomes an unconditional jump back, so the loop is only
+    # left through the break.
+    a = 0;
+    do {
+        a = a + 1;
+        if (a >= 3) {
+            break;
+        };
+    } while (true);
+    print("counted to ", a);
+
+    b = a * 100;
+    print("b=", b);
+} end
