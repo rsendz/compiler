@@ -1,0 +1,12 @@
+# '2 - 2' folds to the constant 0, but the division by it does not fold with
+# it: an optimization must not turn a program that faults into one that looks
+# correct. The division is still there, and it still fails.
+
+program foldedDivisionByZero;
+var quotient : float;
+main
+{   print("before the division");
+    quotient = 8 / (2 - 2);
+    print("never reached = ", quotient);
+}
+end
