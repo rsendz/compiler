@@ -1,4 +1,4 @@
-Optimizer: 63 quadruples in, 41 out: 10 folded, 10 constants propagated, 3 branches settled, 8 jumps simplified, 10 dead, 8 unreachable
+Optimizer: 63 quadruples in, 41 out: 10 folded, 10 constants propagated, 3 branches settled, 5 jumps simplified, 10 dead, 8 unreachable
 a=13 b=-13 ratio=0.5 flag=true
 constantMath()=10
 always taken
