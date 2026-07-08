@@ -136,6 +136,10 @@ class Optimizer:
         # the end, so that the numbers the jumps carry keep meaning the same
         # thing while the transformations run.
         self.removed = set()
+        # Jumps are counted by which quadruple was touched, not by how often:
+        # one jump can be shortened again in a later round, once a removal has
+        # moved what it used to land on.
+        self.simplified = set()
         self.report = OptimizationReport()
 
     def run(self):
@@ -260,14 +264,15 @@ class Optimizer:
             landing = self._retarget(target)
             if landing != target:
                 quad.result = landing
-                self.report.jumps += 1
+                self.simplified.add(index)
                 changed = True
-            if quad.operator == 'goto' and \
-                    self._first_live(quad.result - 1) == self._first_live(index + 1):
+            if quad.operator == 'goto' and self._first_live(quad.result - 1) \
+                    == self._first_live(index + 1):
                 # The jump lands exactly where control would have gone anyway.
                 self._remove(index)
-                self.report.jumps += 1
+                self.simplified.add(index)
                 changed = True
+        self.report.jumps = len(self.simplified)
         return changed
 
     def _retarget(self, target):
