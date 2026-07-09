@@ -36,6 +36,14 @@ Two files are written next to the program: `ir-names.txt`, a readable listing
 meant for inspection, and `ir-addresses.txt`, the address-only listing the
 machine executes. Use `--ir-base NAME` to change the base name.
 
+The quadruples are optimized before they are written. `--no-optimize` emits
+them exactly as the parser produced them, and `--optimize-report` says what the
+pass changed:
+
+```bash
+python main.py tests/optimized/constant_folding.txt --optimize-report
+```
+
 The virtual machine is a program of its own and can run a listing directly,
 without going through the compiler again:
 
@@ -59,6 +67,7 @@ littleduck/
     quadruples.py          the intermediate representation
     flow.py                reachability over the generated quadruples
     context.py             the state shared by every phase
+    optimizer.py           constant folding and dead-code removal
     ir.py                  address resolution and the output files
     compiler.py            the compilation driver
     errors.py              error collection and reporting
@@ -71,6 +80,7 @@ littleduck/
 run_tests.py               runs every program under tests/ and checks its output
 tests/
     programs/              programs that compile and run
+    optimized/             programs run with the optimizer's report on
     compile-errors/        programs rejected at compile time
     runtime-errors/        programs that compile but fail while running
 ```
@@ -82,6 +92,8 @@ program name;
 var a, b : int;
     x : float;
     s : string;
+    ready : bool;
+    values[4] : int;
 
 int add(p : int, q : int) [
     var scratch : int;
@@ -95,11 +107,16 @@ main {
     a = (2 + 3) * 4;
     x = a / 2;
 
-    if (x >= 1.0) {
+    ready = x >= 1.0 and not (a == 0);
+    if (ready or s == "always") {
         print("x is ", x);
     } else {
         print("x is small");
     };
+
+    values[0] = a;
+    values[a - 19] = add(a, 3);
+    print(values[1]);
 
     do {
         a = a - 1;
@@ -111,21 +128,30 @@ main {
 end
 ```
 
-Types are `int`, `float` and `string`; functions may also be `void`. Function
-bodies are delimited by `[ ]`, blocks by `{ }`, and every statement — including
-`if` and `do/while` — ends with a semicolon. Comments start with `#`. `print`
-takes one or more arguments and adds a line break of its own.
+Types are `int`, `float`, `string` and `bool`; functions may also be `void`. A
+declaration that gives a size — `values[4] : int` — declares an array of that
+many elements, indexed from zero. Function bodies are delimited by `[ ]`,
+blocks by `{ }`, and every statement — including `if` and `do/while` — ends
+with a semicolon. Comments start with `#`. `print` takes one or more arguments
+and adds a line break of its own.
+
+`and` and `or` short-circuit: the right operand is only evaluated when the left
+one has not already settled the answer. They take booleans on both sides and
+nothing else — there is no implicit conversion, so `if (n and m)` over two
+integers is rejected rather than quietly reading zero as false.
 
 ## How it works
 
 ### 1. Lexical analysis
 
 Reserved words: `program`, `var`, `main`, `end`, `int`, `float`, `string`,
-`void`, `if`, `else`, `do`, `while`, `print`, `return`, `break`.
+`bool`, `void`, `if`, `else`, `do`, `while`, `print`, `return`, `break`,
+`true`, `false`, `and`, `or`, `not`.
 
-Operators and delimiters: `+ - * / = < > <= >= == != , ; : { } [ ] ( )`.
-Constants are `CONST_INT`, `CONST_FLOAT` and `CONST_STR`; identifiers start
-with a letter.
+Operators and delimiters: `+ - * / = < > <= >= == != , ; : { } [ ] ( )`, plus
+the three word-shaped operators `and`, `or` and `not`. Constants are
+`CONST_INT`, `CONST_FLOAT`, `CONST_STR` and the two boolean words; identifiers
+start with a letter.
 
 Two rules exist purely to report problems: `t_BAD_IDENTIFIER` catches names
 that start with a digit or an underscore (`12abc`, `_x`) before the integer
@@ -134,18 +160,29 @@ one stops the scan.
 
 ### 2. Syntax analysis
 
-The start symbol is `Program`. Precedence is built into the grammar through the
-`Exp` / `Term` / `Factor` chain rather than through PLY precedence
-declarations, and `Expression` accepts at most one relational operator, so
-`a < b < c` is rejected.
+The start symbol is `Program`. Precedence is built into the grammar through a
+chain of rules rather than through PLY precedence declarations, and
+`Comparison` is not recursive, so an expression accepts at most one relational
+operator and `a < b < c` is rejected.
 
 ```
-Program       -> ProgramHeader ; OptVars FunctionList main Body end
-Body          -> { StatementList }
-StatementList -> StatementList Statement | empty
-Statement     -> Assignment | Condition | Loop | Call
-               | Print | ReturnStatement | BreakStatement
+Program        -> ProgramHeader ; OptVars FunctionList main Body end
+Body           -> { StatementList }
+StatementList  -> StatementList Statement | empty
+Statement      -> Assignment | Condition | Loop | Call
+                | Print | ReturnStatement | BreakStatement
+
+Expression     -> Expression or AndExpression | AndExpression
+AndExpression  -> AndExpression and NotExpression | NotExpression
+NotExpression  -> not NotExpression | Comparison
+Comparison     -> Exp RelOp Exp | Exp
+Exp            -> Exp + Term | Exp - Term | Term
+Term           -> Term * Factor | Term / Factor | Factor
+Factor         -> ( Expression ) | + Atom | - Atom | Atom
 ```
+
+Each level of that chain binds tighter than the one above it, so `or` is the
+loosest operator and the arithmetic ones are the tightest.
 
 Recovery rules (`Statement : error SEMICOLON`, `Body : LBRACE error RBRACE`,
 and their siblings) let the parser resynchronize at the next `;` or `}` and
@@ -168,8 +205,14 @@ lets every function reuse the same range of local addresses.
 
 - `+ - *` between `int`/`float`, with `float` winning.
 - `/` between numerics always produces `float`.
-- Comparisons produce `bool`; `==` and `!=` also accept two strings.
+- Comparisons produce `bool`; `==` and `!=` also accept two strings or two
+  booleans.
+- `and` and `or` take `bool` on both sides and produce `bool`. `not` is the
+  one logical operator with a single operand, so it does not fit the cube and
+  has a rule of its own.
 - Assignment allows `float = int` but not `int = float`.
+- No type converts implicitly into another, so a number is never read as a
+  condition and a boolean is never read as a number.
 
 Assignment is modelled as an operator with the destination type on the left,
 so the same table checks assignments, arguments and return values.
@@ -178,8 +221,9 @@ so the same table checks assignments, arguments and return values.
 operations and assignments; calls matching their signature in arity and type;
 boolean conditions in `if` and `while`; `return` only inside a function and
 with the right type; a non-`void` function having at least one `return` with a
-value and returning one on every path; `break` only inside a loop; and names
-not colliding between variables and functions.
+value and returning one on every path; `break` only inside a loop; names not
+colliding between variables and functions; and arrays used one element at a
+time, with an `int` index and an element type that matches.
 
 **Partial returns.** Whether every path through a typed function reaches a
 `return` cannot be answered from the grammar, since the compiler builds no
@@ -201,14 +245,19 @@ both its scope and its type:
 
 | Region   | int   | float | string | bool  | void  |
 | -------- | ----- | ----- | ------ | ----- | ----- |
-| Global   | 1000  | 2000  | 3000   | —     | 4000  |
-| Local    | 7000  | 8000  | 9000   | —     | —     |
-| Temporal | 12000 | 13000 | —      | 14000 | —     |
-| Constant | 17000 | 18000 | 19000  | —     | —     |
+| Global   | 1000  | 2000  | 3000   | 4000  | 5000  |
+| Local    | 7000  | 8000  | 9000   | 10000 | —     |
+| Temporal | 12000 | 13000 | 14000  | 15000 | —     |
+| Constant | 17000 | 18000 | 19000  | 20000 | —     |
 
 Each region holds 1000 addresses. Because the region follows from the address
 alone, the machine can route a read or a write without a symbol table — which
 is why the executable listing carries no names at all.
+
+An array asks for as many consecutive addresses as it has elements, and its own
+address is that of the first one. That is the whole of the array layout: an
+element is reached as `base + index`, which is arithmetic the machine already
+does.
 
 A function that returns a value owns one global slot of its return type, used
 to park the value until the caller picks it up. On entering a function the
@@ -224,11 +273,29 @@ A quadruple is `operator, left, right, result`. The operators are:
 | ---------- | --------------------------------------------- |
 | Arithmetic | `+` `-` `*` `/` `u+` `u-`                     |
 | Relational | `<` `>` `<=` `>=` `==` `!=`                   |
+| Logical    | `not`                                         |
 | Data       | `=`                                           |
+| Arrays     | `ver` `arrayread` `arraywrite`                |
 | Control    | `gotomain` `goto` `gotof` `gotot`             |
 | Calls      | `sub` `param` `gosub` `return` `endfun`       |
 | Output     | `print` `newline`                             |
 | End        | `end`                                         |
+
+Every quadruple also carries the source line it was generated from, in a last
+column of both files. Nothing in the translation uses it; the machine quotes it
+when a program faults, so the report names the line that went wrong and not
+only the quadruple.
+
+`and` and `or` have no operator of their own. The left operand is copied into
+the temporary that will hold the result and a jump over the right operand is
+emitted — `gotof` for `and`, which skips when the answer is already `false`,
+and `gotot` for `or`, which skips when it is already `true`. That jump is what
+makes them short-circuit.
+
+An array access is two quadruples. `ver` checks that the index falls inside the
+array, carrying the bounds as plain numbers rather than addresses since the
+declaration fixes them; `arrayread` and `arraywrite` then do the access, with
+the array's base address in one field and the index in another.
 
 Jumps whose destination is not yet known are emitted with a placeholder and
 patched later. The parser keeps one stack per kind of pending jump: `jumps` for
