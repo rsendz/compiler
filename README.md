@@ -14,6 +14,9 @@ loads and executes.
 
 <img width="1453" height="684" alt="Little Duck grammar diagram" src="https://github.com/user-attachments/assets/fd0d3d05-5bc6-42d8-9b6c-b2a695c19682" />
 
+The diagram predates arrays and the logical operators. The productions under
+[Syntax analysis](#2-syntax-analysis) are the current ones.
+
 ## Quick start
 
 ```bash
@@ -179,6 +182,10 @@ Comparison     -> Exp RelOp Exp | Exp
 Exp            -> Exp + Term | Exp - Term | Term
 Term           -> Term * Factor | Term / Factor | Factor
 Factor         -> ( Expression ) | + Atom | - Atom | Atom
+Atom           -> IDENTIFIER | IDENTIFIER [ Expression ]
+                | Constant | CallExpression
+
+Declarator     -> IDENTIFIER | IDENTIFIER [ CONST_INT ]
 ```
 
 Each level of that chain binds tighter than the one above it, so `or` is the
@@ -307,6 +314,9 @@ quadruple, so the listing mirrors the source expression.
 
 #### Worked example
 
+The listing below is the one the parser produces, before the optimization pass
+of the next section touches it; `--no-optimize` is what prints it.
+
 ```
 program expressions;
 var a : int;
@@ -325,22 +335,22 @@ end
 
 `ir-names.txt`:
 
-| #   | op       | left    | right | result | type  |
-| --- | -------- | ------- | ----- | ------ | ----- |
-| 1   | gotomain | -       | -     | 2      | -     |
-| 2   | +        | 2       | 3     | t1     | int   |
-| 3   | \*       | t1      | 4     | t2     | int   |
-| 4   | =        | t2      | -     | a      | int   |
-| 5   | +        | a       | 1.5   | t3     | float |
-| 6   | =        | t3      | -     | b      | float |
-| 7   | /        | a       | 2     | t4     | float |
-| 8   | =        | t4      | -     | b      | float |
-| 9   | >=       | b       | 1.0   | t5     | bool  |
-| 10  | gotof    | t5      | -     | 14     | -     |
-| 11  | print    | "b is " | -     | -      | -     |
-| 12  | print    | b       | -     | -      | -     |
-| 13  | newline  | -       | -     | -      | -     |
-| 14  | end      | -       | -     | -      | -     |
+| #   | op       | left    | right | result | type  | line |
+| --- | -------- | ------- | ----- | ------ | ----- | ---- |
+| 1   | gotomain | -       | -     | 2      | -     | 1    |
+| 2   | +        | 2       | 3     | t1     | int   | 6    |
+| 3   | \*       | t1      | 4     | t2     | int   | 6    |
+| 4   | =        | t2      | -     | a      | int   | 6    |
+| 5   | +        | a       | 1.5   | t3     | float | 7    |
+| 6   | =        | t3      | -     | b      | float | 7    |
+| 7   | /        | a       | 2     | t4     | float | 8    |
+| 8   | =        | t4      | -     | b      | float | 8    |
+| 9   | >=       | b       | 1.0   | t5     | bool  | 9    |
+| 10  | gotof    | t5      | -     | 14     | -     | 9    |
+| 11  | print    | "b is " | -     | -      | -     | 10   |
+| 12  | print    | b       | -     | -      | -     | 10   |
+| 13  | newline  | -       | -     | -      | -     | 10   |
+| 14  | end      | -       | -     | -      | -     | 13   |
 
 The same program in `ir-addresses.txt`, preceded by its memory header:
 
@@ -359,10 +369,11 @@ global_float   1
 ...
 
 quads
-1    gotomain  -1       -1       2
-2    +         17000    17001    12000
-3    *         12000    17002    12001
-4    =         12001    -1       1000
+#    op        left     right    result   line
+1    gotomain  -1       -1       2        1
+2    +         17000    17001    12000    6
+3    *         12000    17002    12001    6
+4    =         12001    -1       1000     6
 ...
 ```
 
@@ -370,9 +381,72 @@ The file has four sections. `const` lists every constant with its address,
 `global` the number of slots the program needs per region, `funcs` one block
 per function (where it starts, how many parameters it takes, how much local
 and temporary memory it needs) and `quads` the instructions themselves, with
-`-1` for an unused field.
+`-1` for an unused field and the source line last.
 
-### 6. Execution
+### 6. Optimization
+
+The parser never looks back at what it already emitted, which is what keeps the
+single pass simple and also what leaves work in the listing that the program
+does not need. `littleduck/optimizer.py` runs over the finished quadruples of a
+program that compiled cleanly and repeats five transformations until none of
+them finds anything left to do:
+
+| Pass                  | What it does                                                         |
+| --------------------- | -------------------------------------------------------------------- |
+| Constant folding      | an operation over constants becomes the constant it produces          |
+| Constant propagation  | a temporary assigned one constant is replaced by it wherever it is read |
+| Branch settling       | a conditional jump on a constant becomes an unconditional one, or nothing |
+| Jump simplification   | a jump to the next instruction goes away; a jump onto a jump is retargeted |
+| Dead-code removal     | an unread result, or an instruction no path reaches, is dropped        |
+
+They feed each other: folding creates the constants propagation moves, moving
+them leaves the original instructions unread, dropping those makes jumps land
+elsewhere, and settling a branch makes a whole block unreachable. The
+quadruples are then compacted and everything that names one — every jump, and
+the quadruple each function starts at — is renumbered.
+
+The pass is conservative about faults. Reading a variable that was never
+assigned is a runtime error in this language, and so is dividing by zero, so an
+instruction that could raise either is never removed and a division by a zero
+constant is never folded. `8 / (2 - 2)` folds its subtraction and keeps its
+division, and still fails at the same line. An optimization has to make a
+program faster, not make a broken one look correct.
+
+Uncalled functions are kept for the same kind of reason: the function table in
+the generated file names the quadruple each function starts at, and that number
+has to keep pointing at real code. Reachability is seeded from every function
+as well as from the program's own entry, so only code inside a body can be
+found unreachable.
+
+Running the worked example above through the pass turns its fourteen
+quadruples into twelve:
+
+| #   | op       | left    | right | result | type  | line |
+| --- | -------- | ------- | ----- | ------ | ----- | ---- |
+| 1   | gotomain | -       | -     | 2      | -     | 1    |
+| 2   | =        | 20      | -     | a      | int   | 6    |
+| 3   | +        | a       | 1.5   | t3     | float | 7    |
+| 4   | =        | t3      | -     | b      | float | 7    |
+| 5   | /        | a       | 2     | t4     | float | 8    |
+| 6   | =        | t4      | -     | b      | float | 8    |
+| 7   | >=       | b       | 1.0   | t5     | bool  | 9    |
+| 8   | gotof    | t5      | -     | 12     | -     | 9    |
+| 9   | print    | "b is " | -     | -      | -     | 10   |
+| 10  | print    | b       | -     | -      | -     | 10   |
+| 11  | newline  | -       | -     | -      | -     | 10   |
+| 12  | end      | -       | -     | -      | -     | 13   |
+
+`(2 + 3) * 4` is computed once, at compile time, and the two temporaries that
+held its halves are gone. `a + 1.5` stays: `a` is a variable, and this pass
+does not track what variables hold. The summary is written into the readable
+listing and `--optimize-report` prints it:
+
+```
+14 quadruples in, 12 out: 2 folded, 2 constants propagated,
+0 branches settled, 1 jumps simplified, 2 dead, 0 unreachable
+```
+
+### 7. Execution
 
 The machine simulates memory with dictionaries, split in two: one shared block
 for globals and constants, and a stack of activation records holding the locals
@@ -381,9 +455,15 @@ recursion works as expected.
 
 Cells are reserved but never initialised, so reading a variable before it is
 assigned is a runtime error rather than a silent zero. The machine also reports
-division by zero, access to memory outside any reserved region, and recursion
-past its depth limit. In every case it prints whatever the program had already
-produced before the fault and stops.
+division by zero, an array index outside its bounds, access to memory outside
+any reserved region, and recursion past its depth limit. In every case it
+prints whatever the program had already produced before the fault, names the
+source line and the quadruple that failed, and stops:
+
+```
+about to divide
+Runtime error at line 11 (quadruple 6): division by zero
+```
 
 ## Tests
 
@@ -393,24 +473,30 @@ python run_tests.py
 
 Every `<name>.txt` under `tests/` is compiled, run, and compared against the
 `<name>.expected` file beside it. The directory a program lives in also says
-how it must finish, so a program that was supposed to fail but succeeded is a
-failure even if its output looks right.
+how it must finish and how it is compiled, so a program that was supposed to
+fail but succeeded is a failure even if its output looks right.
 
 - `tests/programs/` — programs that compile and run: arithmetic, control flow,
   nested loops, `break`, early `return`, recursion (including a two-call
   `fib`), calls nested inside other calls, string comparison, printing every
-  type, functions that return on every path (guarding the partial-return check
-  against false positives), and one program exercising every construct at
-  once.
+  type, arrays of every type (sorted in place, and one local to a function),
+  booleans with short-circuiting `and`/`or`, functions that return on every
+  path (guarding the partial-return check against false positives), and one
+  program exercising every construct at once.
+- `tests/optimized/` — programs compiled with `--optimize-report`, so what the
+  optimization pass did to them is recorded next to their output and any
+  change to the pass shows up as a diff.
 - `tests/compile-errors/` — one file per class of rejection: bad identifiers,
   syntax errors and their recovery, type mismatches, undeclared names, name
   collisions, calls that do not match their signature, misplaced `break` and
   `return`, a typed function with no value return, one that returns on only
-  some paths, `print` with no arguments, and a function reaching for a global
-  variable.
+  some paths, `print` with no arguments, a function reaching for a global
+  variable, arrays used whole or indexed with the wrong type, and booleans
+  mixed with anything else.
 - `tests/runtime-errors/` — programs that compile cleanly and then fail:
-  division by zero (int and float), reading an uninitialized global or local,
-  and runaway recursion.
+  division by zero (int and float), a division whose divisor is a folded
+  constant zero, an array index past the end, reading an uninitialized global
+  or local, and runaway recursion.
 
 Pass a fragment of a name to run part of the suite, and `--update` to record
 the current output as the expected one after an intentional change:
@@ -433,10 +519,18 @@ python main.py tests/runtime-errors/division_by_zero.txt
 
 ## Current limitations
 
-- No arrays or compound data structures.
-- No declarable booleans; `bool` only arises from comparisons.
+- Arrays are one-dimensional and their size is a literal fixed at compile
+  time. There are no other compound data structures, and an array cannot be
+  passed to a function: parameters are scalars.
 - Functions cannot read or write global variables.
-- No short-circuit boolean operators (`and`, `or`, `not`).
+- The optimization pass never reasons about what a variable holds, only about
+  what a temporary holds, so `a = 2; b = a + 1;` keeps its addition. It also
+  leaves the memory counts in the header alone, so a scope may reserve
+  temporaries that the pass has since removed — space that is reserved and
+  never touched.
+- The optimization pass sees each quadruple on its own and does not recognize
+  that two of them compute the same thing, so a repeated subexpression is
+  still computed twice.
 - The partial-return check is intraprocedural: `gosub` is treated as falling
   through to the next instruction, so the analysis never follows a call into
   the function it invokes. A function that ends by calling one that never
@@ -452,7 +546,9 @@ python main.py tests/runtime-errors/division_by_zero.txt
 
 ## Possible extensions
 
-- Arrays with bounds checking.
-- Boolean operators and declarable `bool` variables.
-- Constant folding and dead-code elimination over the quadruples.
+- Multidimensional arrays, and arrays as parameters.
+- Constant propagation through variables, and common subexpression
+  elimination, so the optimization pass can see past a single quadruple.
+- Recomputing the memory header after optimization, so a scope only reserves
+  the temporaries that survived.
 - Richer diagnostics showing the offending source line in context.
