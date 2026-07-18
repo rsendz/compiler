@@ -92,6 +92,11 @@ PURE_OPERATORS = frozenset(
 # same number from the function table to size the activation record.
 RETARGETABLE = JUMP_OPERATORS - {'gosub'}
 
+# Instructions that close a scope rather than compute anything. They stay even
+# when no path arrives at them -- a function whose body never terminates would
+# otherwise lose the 'endfun' that marks where it ends.
+STRUCTURAL = frozenset({'end', 'endfun'})
+
 # A literal that could not be read as a foldable constant.
 NOT_A_CONSTANT = object()
 
@@ -253,7 +258,8 @@ class Optimizer:
         return changed
 
     def simplify_jumps(self):
-        """Drop jumps that go nowhere and shorten those that go through another."""
+        """Drop a jump that goes nowhere, shorten one that goes through
+        another."""
         changed = False
         for index, quad in self._live():
             if quad.operator not in RETARGETABLE:
@@ -353,8 +359,8 @@ class Optimizer:
             pending.extend(self._successors(index))
 
         changed = False
-        for index, _ in self._live():
-            if index not in reached:
+        for index, quad in self._live():
+            if index not in reached and quad.operator not in STRUCTURAL:
                 self._remove(index)
                 self.report.unreachable += 1
                 changed = True
@@ -368,7 +374,7 @@ class Optimizer:
         """
         quad = self.quads[index]
         operator = quad.operator
-        if operator in ('end', 'endfun'):
+        if operator in STRUCTURAL:
             return ()
         if operator in ('goto', 'gotomain'):
             return (quad.result - 1,) if isinstance(quad.result, int) else ()
@@ -394,7 +400,7 @@ class Optimizer:
         return max(index, 0)
 
     def _compact(self):
-        """Drop the removed quadruples and renumber everything that points at one.
+        """Drop the removed quadruples, renumbering what points at them.
 
         A jump to a quadruple that is gone is aimed at the next surviving one,
         which is where control would have arrived anyway.
