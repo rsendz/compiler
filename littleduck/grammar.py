@@ -343,7 +343,8 @@ def p_Assignment(p):
 
 
 def p_Assignment_element(p):
-    "Assignment : IDENTIFIER LBRACKET Expression RBRACKET OP_ASSIGN Expression SEMICOLON"
+    ("Assignment : IDENTIFIER LBRACKET Expression RBRACKET OP_ASSIGN "
+     "Expression SEMICOLON")
     CONTEXT.write_element(p[1], _track_line(p, 1))
 
 

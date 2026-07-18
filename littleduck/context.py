@@ -318,7 +318,8 @@ class CompilationContext:
              'jump': self.emit_pending_jump(jump, temporary)})
 
     def finish_short_circuit(self, operator):
-        """Emit the second half of an ``and``/``or``, once its right operand is in.
+        """Emit the second half of an ``and``/``or``, once the right
+        operand is in.
 
         The right operand overwrites the temporary, and the jump opened by
         :meth:`begin_short_circuit` is patched to land just after it.
