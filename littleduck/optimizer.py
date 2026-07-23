@@ -8,7 +8,7 @@ at run time, a temporary that only ever holds one constant is stored and read
 back, and code behind a condition that cannot hold is generated anyway.
 
 This module runs after parsing, over the quadruples the parser left in the
-context, and rewrites them in place. Five transformations feed each other and
+context, and rewrites them in place. Six transformations feed each other and
 are repeated until none of them finds anything left to do:
 
 ``fold_constants``
@@ -23,9 +23,10 @@ are repeated until none of them finds anything left to do:
 ``simplify_jumps``
     a jump to the next instruction is dropped, and a jump that lands on an
     unconditional jump is retargeted to where that one goes.
-``remove_dead_code``
-    an instruction whose result is a temporary nobody reads is dropped, and so
-    is an instruction no path can reach.
+``remove_dead_results``
+    an instruction whose result is a temporary nobody reads is dropped.
+``remove_unreachable``
+    an instruction no path arrives at is dropped.
 
 Everything here is deliberately conservative about faults. Reading a variable
 that was never assigned is a runtime error in this language, and so is dividing
@@ -113,10 +114,6 @@ class OptimizationReport:
         self.jumps = 0
         self.dead = 0
         self.unreachable = 0
-
-    @property
-    def removed(self):
-        return self.before - self.after
 
     def summary(self):
         return ("%d quadruples in, %d out: %d folded, %d constants "
