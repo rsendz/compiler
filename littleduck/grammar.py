@@ -180,7 +180,7 @@ def p_FunctionHeader(p):
         directory.push_scope(name)
         return
 
-    if name in directory.global_variables():
+    if directory.global_variable(name) is not None:
         CONTEXT.semantic_error(
             "Semantic error: function '%s' cannot share its name with a "
             "variable" % name, line)
@@ -289,8 +289,19 @@ def _check_every_path_returns(entry, end_quad):
 
 # --- Statements ------------------------------------------------------------
 
+def p_MarkBlockStart(p):
+    "MarkBlockStart :"
+    # The brace has been shifted and the block's own declarations are about to
+    # be read, so this is where its scope begins.
+    CONTEXT.functions.open_block()
+
+
 def p_Body(p):
-    "Body : LBRACE StatementList RBRACE"
+    "Body : LBRACE MarkBlockStart StatementList RBRACE"
+    # The names the block declared go out of scope with it. Their addresses
+    # stay reserved: the memory a block used is not handed back to the next
+    # one.
+    CONTEXT.functions.close_block()
 
 
 def p_StatementList_more(p):
@@ -302,13 +313,27 @@ def p_StatementList_empty(p):
 
 
 def p_Statement(p):
-    """Statement : Assignment
+    """Statement : Declaration
+                 | Assignment
                  | Condition
                  | Loop
                  | Call
                  | Print
                  | ReturnStatement
                  | BreakStatement"""
+
+
+def p_Declaration(p):
+    "Declaration : VAR IdList COLON Type SEMICOLON"
+    # A declaration inside a block is a statement of its own, each with its own
+    # 'var'. The section at the top of the program or of a function writes
+    # 'var' once and lists several declarations under it; that shape cannot be
+    # reused here, because after one declaration an identifier could equally
+    # start another one or start a statement, and the parser only looks one
+    # token ahead.
+    _track_line(p, 1)
+    CONTEXT.declare_variables(CONTEXT.pending_ids, p[4], _line(p, 3))
+    CONTEXT.pending_ids = []
 
 
 # --- Assignment ------------------------------------------------------------
@@ -339,7 +364,7 @@ def p_Assignment(p):
                 "Semantic error: cannot assign %s to '%s' (%s)"
                 % (value_type, target, variable.type), line)
         return
-    CONTEXT.emit('=', value, None, target, variable.type)
+    CONTEXT.emit('=', value, None, variable, variable.type)
 
 
 def p_Assignment_element(p):
@@ -674,7 +699,7 @@ def p_Atom_identifier(p):
             "time" % p[1], line)
         CONTEXT.push_error_operand()
     else:
-        CONTEXT.push_operand(p[1], variable.type)
+        CONTEXT.push_operand(variable, variable.type)
 
 
 def p_Atom_element(p):

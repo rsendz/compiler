@@ -16,6 +16,7 @@ number of a quadruple.
 """
 
 from .memory import format_constant, region_name
+from .symbols import Variable
 
 # Sections of the address file, in the order they are written.
 SECTIONS = ('const', 'global', 'funcs', 'quads')
@@ -39,27 +40,23 @@ class IntermediateCode:
     def resolve(self, operand, scope):
         """Translate a quadruple operand into its virtual address.
 
-        Temporaries and constants have their own tables; variables and
-        parameters are looked up in the scope the quadruple was emitted in.
-        An empty field resolves to -1.
+        A variable carries its own address, so there is nothing to look up.
+        Temporaries and constants have their own tables, and a function name
+        stands for the slot its return value is parked in. An empty field
+        resolves to -1.
         """
         context = self.context
         if operand is None or operand == '_':
             return EMPTY_FIELD
 
+        if isinstance(operand, Variable):
+            return operand.address
+
         if context.memory.is_temporary(operand):
             return context.memory.address_of_temporary(operand)
 
-        if isinstance(operand, str):
-            # A function name stands for its return slot.
-            if context.functions.is_function(operand):
-                return context.functions.get(operand).address
-            entry = context.functions.get(scope)
-            if entry is not None and operand in entry.variables:
-                return entry.variables[operand].address
-            program = context.functions.program_entry
-            if program is not None and operand in program.variables:
-                return program.variables[operand].address
+        if isinstance(operand, str) and context.functions.is_function(operand):
+            return context.functions.get(operand).address
 
         # Anything left is a literal; its type follows from the Python value.
         # bool is checked first: in Python it is a subclass of int.
@@ -73,24 +70,6 @@ class IntermediateCode:
                 and operand.endswith('"'):
             return context.memory.constant(operand, 'string')
         return EMPTY_FIELD
-
-    def _callee_of_param(self, index):
-        """Find which function a ``param`` quadruple is filling in.
-
-        The destination of a ``param`` is a parameter of the function that is
-        about to be called, so the enclosing ``gosub`` says which scope to look
-        the parameter up in.
-        """
-        quads = self.context.quads
-        for position in range(index + 1, len(quads)):
-            operator = quads[position].operator
-            if operator == 'gosub':
-                if self.context.functions.is_function(quads[position].left):
-                    return quads[position].left
-                break
-            if operator == 'sub':
-                break
-        return self.context.functions.program_name
 
     def to_addresses(self):
         """Return the quadruples as ``[operator, left, right, result]`` rows.
@@ -127,7 +106,7 @@ class IntermediateCode:
                     EMPTY_FIELD, EMPTY_FIELD]
         if operator == 'param':
             return [operator, self.resolve(quad.left, scope), EMPTY_FIELD,
-                    self.resolve(quad.result, self._callee_of_param(index))]
+                    self.resolve(quad.result, scope)]
         if operator in ('endfun', 'end', 'newline'):
             return [operator, EMPTY_FIELD, EMPTY_FIELD, EMPTY_FIELD]
         if operator == 'ver':
@@ -157,7 +136,7 @@ class IntermediateCode:
         adds one more slot of its return type for the value it hands back.
         """
         counts = {}
-        for variable in self.context.functions.global_variables().values():
+        for variable in self.context.functions.global_variables():
             region = region_name('global', variable.type)
             counts[region] = counts.get(region, 0) + variable.slots
         for entry in self.context.functions.functions():
@@ -202,6 +181,27 @@ class IntermediateCode:
         return lines
 
     # -- Rendering ---------------------------------------------------------
+    def display_names(self):
+        """A readable name per variable, unique inside its scope.
+
+        Blocks let one scope hold several variables of the same name -- one
+        hiding another, or two sibling blocks each declaring their own. They
+        have different addresses, so the executable listing tells them apart on
+        its own; the readable one numbers them in declaration order.
+        """
+        names = {}
+        for entry in self.context.functions.entries.values():
+            by_name = {}
+            for variable in entry.variables:
+                by_name.setdefault(variable.name, []).append(variable)
+            for name, group in by_name.items():
+                if len(group) == 1:
+                    names[id(group[0])] = name
+                    continue
+                for number, variable in enumerate(group, start=1):
+                    names[id(variable)] = "%s~%d" % (name, number)
+        return names
+
     def as_names(self, optimization=None):
         """The readable listing: quadruples with names, for inspection."""
         lines = ["# Intermediate representation (names) - for inspection only"]
@@ -215,11 +215,13 @@ class IntermediateCode:
         lines.append("# Quadruples")
         lines.append("%-4s %-9s %-14s %-14s %-14s %-8s %s"
                      % ("#", "op", "left", "right", "result", "type", "line"))
+        names = self.display_names()
         for number, quad in enumerate(self.context.quads, start=1):
             lines.append("%-4d %-9s %-14s %-14s %-14s %-8s %d"
-                         % (number, quad.operator, _field(quad.left),
-                            _field(quad.right), _field(quad.result),
-                            _field(quad.result_type), quad.line))
+                         % (number, quad.operator, _field(quad.left, names),
+                            _field(quad.right, names),
+                            _field(quad.result, names),
+                            _field(quad.result_type, names), quad.line))
         return lines
 
     def as_addresses(self):
@@ -262,14 +264,17 @@ class IntermediateCode:
         return addresses_path
 
 
-def _field(value):
+def _field(value, names):
     """Render a quadruple field for the readable listing.
 
-    An empty field becomes a dash, and a constant is spelled the way the source
-    spells it -- 'true' rather than Python's 'True'.
+    An empty field becomes a dash, a variable is spelled the way ``names``
+    spells it, and a constant the way the source does -- 'true' rather than
+    Python's 'True'.
     """
     if value is None or value == '_':
         return '-'
+    if isinstance(value, Variable):
+        return names.get(id(value), value.name)
     return format_constant(value)
 
 
