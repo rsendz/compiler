@@ -113,10 +113,10 @@ class CompilationContext:
             return
         kind = self.scope_kind()
         for name, size in declarators:
-            if name in entry.variables:
+            if entry.declared_here(name):
                 self.semantic_error(
                     "Semantic error: variable '%s' is already declared in "
-                    "scope '%s'" % (name, entry.name), line)
+                    "this scope" % name, line)
             elif self.functions.is_function(name):
                 self.semantic_error(
                     "Semantic error: variable '%s' cannot share its name with "
@@ -129,15 +129,15 @@ class CompilationContext:
                 slots = 1 if size is None else size
                 address = self.memory.allocate(kind, var_type, name=name,
                                                slots=slots)
-                entry.variables[name] = Variable(name, var_type, entry.name,
-                                                 address, size=size)
+                entry.add(Variable(name, var_type, entry.name, address,
+                                   size=size, depth=entry.depth))
                 entry.reserve(region_name(kind, var_type), slots)
 
     def declare_parameter(self, name, param_type, line):
         entry = self.functions.current_entry
         if entry is None:
             return
-        if name in entry.variables:
+        if entry.declared_here(name):
             self.semantic_error(
                 "Semantic error: parameter '%s' already exists in function "
                 "'%s'" % (name, entry.name), line)
@@ -147,9 +147,10 @@ class CompilationContext:
                 "function" % name, line)
         else:
             address = self.memory.allocate('local', param_type, name=name)
-            entry.variables[name] = Variable(name, param_type, entry.name,
-                                             address, is_parameter=True)
-            entry.parameters.append((name, param_type))
+            parameter = Variable(name, param_type, entry.name, address,
+                                 is_parameter=True)
+            entry.add(parameter)
+            entry.parameters.append(parameter)
             entry.reserve(region_name('local', param_type))
 
     # -- Arrays ------------------------------------------------------------
@@ -201,7 +202,7 @@ class CompilationContext:
             self.push_error_operand()
             return
         temporary = self.new_temporary(variable.type)
-        self.emit('arrayread', name, index, temporary, variable.type)
+        self.emit('arrayread', variable, index, temporary, variable.type)
         self.push_operand(temporary, variable.type)
 
     def write_element(self, name, line):
@@ -225,7 +226,7 @@ class CompilationContext:
                     "Semantic error: cannot assign %s to an element of '%s' "
                     "(%s)" % (source_type, name, variable.type), line)
             return
-        self.emit('arraywrite', source, index, name, variable.type)
+        self.emit('arraywrite', source, index, variable, variable.type)
 
     # -- Expressions -------------------------------------------------------
     def apply_binary(self, operator):
@@ -388,20 +389,23 @@ class CompilationContext:
             # Without matching arity there is no sensible code to emit.
             return (entry, False)
 
-        for position, ((value, value_type), (_, param_type)) in enumerate(
+        for position, ((value, value_type), parameter) in enumerate(
                 zip(arguments, parameters), start=1):
-            if result_type(param_type, '=', value_type) == 'error':
+            if result_type(parameter.type, '=', value_type) == 'error':
                 if value_type != 'error':
                     self.semantic_error(
                         "Semantic error: argument %d of '%s' expects %s but "
-                        "got %s" % (position, name, param_type, value_type),
-                        line)
+                        "got %s" % (position, name, parameter.type,
+                                    value_type), line)
                 ok = False
 
-        for (value, _), (param_name, param_type) in zip(arguments, parameters):
+        for (value, _), parameter in zip(arguments, parameters):
             # param: the evaluated argument on the left, the destination
-            # parameter (in the callee's local memory) as the result.
-            self.emit('param', value, None, param_name, param_type)
+            # parameter (in the callee's local memory) as the result. The
+            # parameter travels as the variable itself, so the address it
+            # resolves to is the callee's and not something looked up by name
+            # in the caller's scope.
+            self.emit('param', value, None, parameter, parameter.type)
         # gosub: the function name on the left (readable in the debug IR), the
         # temporary that receives the return value on the right, and the
         # quadruple the function starts at as the result.
