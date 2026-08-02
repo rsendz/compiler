@@ -1,0 +1,9 @@
+Compilation errors:
+
+4 semantic error(s):
+  - Semantic error: variable 'secret' is not declared (line 19)
+  - Semantic error: variable 'n' is not declared (line 20)
+  - Semantic error: variable 'a' is already declared in this scope (line 26)
+  - Semantic error: variable 'inner' is not declared (line 35)
+
+Total: 0 lexical + 0 syntax + 4 semantic

@@ -1,0 +1,39 @@
+# What a scope still does not reach. A function sees its own names and the
+# globals, and nothing of another function. A block's names last only as long
+# as the block, and two of them cannot share a name inside it.
+
+program outOfScope;
+var total : int;
+
+int helper ( n : int ) [
+   var secret : int;
+   {
+      secret = n;
+      return secret + total;
+   }
+];
+
+void peek () [
+   {
+      # Another function's local and parameter are not visible here.
+      print(secret);
+      print(n);
+   }
+];
+
+main {
+    var a : int;
+    var a : string;
+
+    total = 0;
+    if (total == 0) {
+        var inner : int;
+        inner = 1;
+        print(inner);
+    };
+    # 'inner' went out of scope with the block that declared it.
+    print(inner);
+
+    a = helper(1);
+}
+end
