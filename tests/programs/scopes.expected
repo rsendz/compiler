@@ -1,0 +1,11 @@
+bump -> 3
+bump -> 7
+shadowed(2) = 20, global shared is still 7
+inner m = 700
+inner m = 400
+inner m = 100
+outer m = 1 global
+inner label = inner
+outer label = global
+first block reused = 1
+second block reused = second

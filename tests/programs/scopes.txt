@@ -1,0 +1,65 @@
+# Scopes: a function reaching the global variables, a name that hides another,
+# and blocks declaring variables of their own.
+
+program scopes;
+
+var counter, shared : int;
+    label : string;
+
+# Functions read and write the globals directly, so 'counter' survives across
+# calls without being passed in and handed back.
+void bump(by : int) [
+    {
+        counter = counter + by;
+        print("bump -> ", counter);
+    }
+];
+
+int shadowed(shared : int) [
+    {
+        # The parameter hides the global of the same name for this function.
+        return shared * 10;
+    }
+];
+
+main {
+    var m : int;
+
+    counter = 0;
+    shared = 7;
+    label = "global";
+    m = 1;
+
+    bump(3);
+    bump(4);
+    print("shadowed(2) = ", shadowed(2), ", global shared is still ", shared);
+
+    # The block's own 'm' hides the outer one until its closing brace.
+    do {
+        var m : int;
+        m = counter * 100;
+        print("inner m = ", m);
+        counter = counter - 3;
+    } while (counter > 0);
+    print("outer m = ", m, " ", label);
+
+    if (m == 1) {
+        var label : string;
+        label = "inner";
+        print("inner label = ", label);
+    };
+    print("outer label = ", label);
+
+    # Two blocks side by side may reuse a name, and even give it a different
+    # type: each declaration is its own variable with its own address.
+    do {
+        var reused : int;
+        reused = 1;
+        print("first block reused = ", reused);
+    } while (false);
+    do {
+        var reused : string;
+        reused = "second";
+        print("second block reused = ", reused);
+    } while (false);
+} end
