@@ -12,10 +12,47 @@ loads and executes.
 
 ## Grammar diagram
 
-<img width="1453" height="684" alt="Little Duck grammar diagram" src="https://github.com/user-attachments/assets/fd0d3d05-5bc6-42d8-9b6c-b2a695c19682" />
+Railroad diagrams of the whole grammar, one section at a time.
 
-The diagram predates arrays and the logical operators. The productions under
-[Syntax analysis](#2-syntax-analysis) are the current ones.
+<details open>
+<summary><b>Program and declarations</b></summary>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/grammar-program-dark.svg">
+  <img alt="Program and declarations productions" src="docs/grammar-program-light.svg">
+</picture>
+</details>
+
+<details>
+<summary><b>Functions</b></summary>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/grammar-functions-dark.svg">
+  <img alt="Functions productions" src="docs/grammar-functions-light.svg">
+</picture>
+</details>
+
+<details>
+<summary><b>Statements</b></summary>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/grammar-statements-dark.svg">
+  <img alt="Statements productions" src="docs/grammar-statements-light.svg">
+</picture>
+</details>
+
+<details>
+<summary><b>Expressions</b></summary>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/grammar-expressions-dark.svg">
+  <img alt="Expressions productions" src="docs/grammar-expressions-light.svg">
+</picture>
+</details>
+
+They are generated from the productions in `littleduck/grammar.py`, so
+regenerate them after changing the grammar:
+
+```bash
+pip install railroad-diagrams
+python docs/grammar_diagram.py
+```
 
 ## Quick start
 
@@ -80,6 +117,9 @@ littleduck/
         machine.py         the interpreter
         errors.py          runtime errors
         __main__.py        `python -m littleduck.vm`
+docs/
+    grammar_diagram.py     regenerates the railroad diagrams above
+    grammar-*.svg          the diagrams themselves, light and dark
 run_tests.py               runs every program under tests/ and checks its output
 tests/
     programs/              programs that compile and run
@@ -106,6 +146,13 @@ int add(p : int, q : int) [
     }
 ];
 
+void report() [
+    {
+        # A function reads and writes the globals directly.
+        print("a is ", a);
+    }
+];
+
 main {
     a = (2 + 3) * 4;
     x = a / 2;
@@ -122,10 +169,13 @@ main {
     print(values[1]);
 
     do {
-        a = a - 1;
+        var step : int;      # declared here, gone at the closing brace
+        step = a - 1;
+        a = step;
         if (a == 5) { break; };
     } while (a > 0);
 
+    report();
     b = add(a, 3);
 }
 end
@@ -142,6 +192,11 @@ and adds a line break of its own.
 one has not already settled the answer. They take booleans on both sides and
 nothing else — there is no implicit conversion, so `if (n and m)` over two
 integers is rejected rather than quietly reading zero as false.
+
+A `var` may also appear as a statement, in which case it belongs to the block
+it is written in and goes out of scope at the closing brace. Each such
+declaration writes its own `var`; the section at the top of a program or a
+function writes it once and lists several declarations under it.
 
 ## How it works
 
@@ -172,8 +227,9 @@ operator and `a < b < c` is rejected.
 Program        -> ProgramHeader ; OptVars FunctionList main Body end
 Body           -> { StatementList }
 StatementList  -> StatementList Statement | empty
-Statement      -> Assignment | Condition | Loop | Call
+Statement      -> Declaration | Assignment | Condition | Loop | Call
                 | Print | ReturnStatement | BreakStatement
+Declaration    -> var IdList : Type ;
 
 Expression     -> Expression or AndExpression | AndExpression
 AndExpression  -> AndExpression and NotExpression | NotExpression
@@ -203,9 +259,23 @@ is one `FunctionEntry` holding its return type, its parameters in declaration
 order, its variable table, the quadruple it starts at, and how much memory it
 needs.
 
-**Scopes are isolated.** A function sees only its own parameters and locals;
-the main program sees only the globals. Nothing reaches across, which is what
-lets every function reuse the same range of local addresses.
+**Scopes nest.** A name is looked up in the blocks currently open, innermost
+first, then in the scope's own parameters and top-level locals, then in the
+global variables. A function does not see another function's names, which is
+what lets every function reuse the same range of local addresses.
+
+Every `{ }` is a scope: a `var` written as a statement belongs to the block it
+appears in and is gone at the closing brace. A declaration may reuse a name
+from an enclosing scope, in which case it hides it for as long as it is open,
+and two blocks side by side may each declare their own — with different types
+if they like, since each declaration is a variable of its own with its own
+address.
+
+That is also why a quadruple carries the variable itself rather than its name:
+two variables that share a name never have to be told apart by name later on.
+Resolving an operand is reading its address. The readable listing has only the
+name to go on, so it numbers same-named variables of one scope, `label~1` and
+`label~2`.
 
 **Semantic cube.** `CUBE[left][right][operator]` gives the result type or
 `error`. The rules that matter:
@@ -229,8 +299,9 @@ operations and assignments; calls matching their signature in arity and type;
 boolean conditions in `if` and `while`; `return` only inside a function and
 with the right type; a non-`void` function having at least one `return` with a
 value and returning one on every path; `break` only inside a loop; names not
-colliding between variables and functions; and arrays used one element at a
-time, with an `int` index and an element type that matches.
+colliding between variables and functions, and not declared twice in the same
+scope; and arrays used one element at a time, with an `int` index and an
+element type that matches.
 
 **Partial returns.** Whether every path through a typed function reaches a
 `return` cannot be answered from the grammar, since the compiler builds no
@@ -480,7 +551,8 @@ fail but succeeded is a failure even if its output looks right.
   nested loops, `break`, early `return`, recursion (including a two-call
   `fib`), calls nested inside other calls, string comparison, printing every
   type, arrays of every type (sorted in place, and one local to a function),
-  booleans with short-circuiting `and`/`or`, functions that return on every
+  booleans with short-circuiting `and`/`or`, functions reaching the globals
+  and blocks declaring variables of their own, functions that return on every
   path (guarding the partial-return check against false positives), and one
   program exercising every construct at once.
 - `tests/optimized/` — programs compiled with `--optimize-report`, so what the
@@ -490,9 +562,9 @@ fail but succeeded is a failure even if its output looks right.
   syntax errors and their recovery, type mismatches, undeclared names, name
   collisions, calls that do not match their signature, misplaced `break` and
   `return`, a typed function with no value return, one that returns on only
-  some paths, `print` with no arguments, a function reaching for a global
-  variable, arrays used whole or indexed with the wrong type, and booleans
-  mixed with anything else.
+  some paths, `print` with no arguments, names reached for outside their scope,
+  arrays used whole or indexed with the wrong type, and booleans mixed with
+  anything else.
 - `tests/runtime-errors/` — programs that compile cleanly and then fail:
   division by zero (int and float), a division whose divisor is a folded
   constant zero, an array index past the end, reading an uninitialized global
@@ -522,7 +594,9 @@ python main.py tests/runtime-errors/division_by_zero.txt
 - Arrays are one-dimensional and their size is a literal fixed at compile
   time. There are no other compound data structures, and an array cannot be
   passed to a function: parameters are scalars.
-- Functions cannot read or write global variables.
+- A block's variables keep their addresses to themselves: two blocks side by
+  side each reserve their own, rather than reusing the space the first one is
+  finished with.
 - The optimization pass never reasons about what a variable holds, only about
   what a temporary holds, so `a = 2; b = a + 1;` keeps its addition. It also
   leaves the memory counts in the header alone, so a scope may reserve
@@ -547,6 +621,8 @@ python main.py tests/runtime-errors/division_by_zero.txt
 ## Possible extensions
 
 - Multidimensional arrays, and arrays as parameters.
+- Reusing the addresses of a block that has closed, so sibling blocks share
+  the space instead of each reserving its own.
 - Constant propagation through variables, and common subexpression
   elimination, so the optimization pass can see past a single quadruple.
 - Recomputing the memory header after optimization, so a scope only reserves
