@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="grammar" width="962.0" height="421.0" viewBox="0 0 962.0 421.0">
+<style>
+  svg.grammar { background: #ffffff; }
+  svg.grammar path { stroke-width: 2; stroke: #57606a; fill: none; }
+  svg.grammar text {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; text-anchor: middle;
+  }
+  svg.grammar g.terminal rect {
+    stroke-width: 2; stroke: #54aeff; fill: #ddf4ff;
+  }
+  svg.grammar g.terminal text { fill: #0a3069; font-weight: 600; }
+  svg.grammar g.non-terminal rect {
+    stroke-width: 2; stroke: #afb8c1; fill: #f6f8fa;
+  }
+  svg.grammar g.non-terminal text { fill: #1f2328; }
+  svg.grammar text.comment {
+    font-style: italic; font-size: 12px; fill: #6e7781;
+  }
+  svg.grammar text.heading {
+    text-anchor: start; font-size: 15px; font-weight: 700; fill: #1f2328;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  svg.grammar text.rule-name {
+    text-anchor: start; font-size: 14px; font-weight: 700; fill: #1f2328;
+  }
+  svg.grammar line.divider { stroke: #d1d9e0; stroke-width: 1; }
+</style>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text class="heading" x="24" y="38">Functions</text>
+<text class="rule-name" x="24" y="66.0">Function</text>
+<g transform="translate(24 74.0)">
+<g transform="translate(.5 .5)">
+<g>
+<path d="M20 30v20m0 -10h20" /></g><path d="M40 40h10" /><g>
+<path d="M50 40h0.0" /><path d="M864.0 40h0.0" /><g class="non-terminal ">
+<path d="M50.0 40h0.0" /><path d="M155.0 40h0.0" /><rect height="22" width="105" x="50" y="29"></rect><text x="102.5" y="44">ReturnType</text></g><path d="M155.0 40h10" /><path d="M165.0 40h10" /><g class="non-terminal ">
+<path d="M175.0 40h0.0" /><path d="M280.0 40h0.0" /><rect height="22" width="105" x="175" y="29"></rect><text x="227.5" y="44">IDENTIFIER</text></g><path d="M280.0 40h10" /><path d="M290.0 40h10" /><g class="terminal ">
+<path d="M300.0 40h0.0" /><path d="M328.5 40h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="300" y="29"></rect><text x="314.25" y="44">(</text></g><path d="M328.5 40h10" /><g>
+<path d="M338.5 40h0.0" /><path d="M461.0 40h0.0" /><path d="M338.5 40a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10" /><g>
+<path d="M358.5 20h82.5" /></g><path d="M441.0 20a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10" /><path d="M338.5 40h20" /><g>
+<path d="M358.5 40h0.0" /><path d="M441.0 40h0.0" /><path d="M358.5 40h10" /><g class="non-terminal ">
+<path d="M368.5 40h0.0" /><path d="M431.0 40h0.0" /><rect height="22" width="62.5" x="368.5" y="29"></rect><text x="399.75" y="44">Param</text></g><path d="M431.0 40h10" /><path d="M368.5 40a10 10 0 0 0 -10 10v10a10 10 0 0 0 10 10" /><g class="terminal ">
+<path d="M368.5 70h17.0" /><path d="M414.0 70h17.0" /><rect height="22" rx="10" ry="10" width="28.5" x="385.5" y="59"></rect><text x="399.75" y="74">,</text></g><path d="M431.0 70a10 10 0 0 0 10 -10v-10a10 10 0 0 0 -10 -10" /></g><path d="M441.0 40h20" /></g><path d="M461.0 40h10" /><g class="terminal ">
+<path d="M471.0 40h0.0" /><path d="M499.5 40h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="471" y="29"></rect><text x="485.25" y="44">)</text></g><path d="M499.5 40h10" /><path d="M509.5 40h10" /><g class="terminal ">
+<path d="M519.5 40h0.0" /><path d="M548.0 40h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="519.5" y="29"></rect><text x="533.75" y="44">[</text></g><path d="M548.0 40h10" /><g>
+<path d="M558.0 40h0.0" /><path d="M703.0 40h0.0" /><path d="M558.0 40a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10" /><g>
+<path d="M578.0 20h105.0" /></g><path d="M683.0 20a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10" /><path d="M558.0 40h20" /><g class="non-terminal ">
+<path d="M578.0 40h0.0" /><path d="M683.0 40h0.0" /><rect height="22" width="105" x="578" y="29"></rect><text x="630.5" y="44">VarSection</text></g><path d="M683.0 40h20" /></g><path d="M703.0 40h10" /><g class="non-terminal ">
+<path d="M713.0 40h0.0" /><path d="M767.0 40h0.0" /><rect height="22" width="54" x="713" y="29"></rect><text x="740" y="44">Body</text></g><path d="M767.0 40h10" /><path d="M777.0 40h10" /><g class="terminal ">
+<path d="M787.0 40h0.0" /><path d="M815.5 40h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="787" y="29"></rect><text x="801.25" y="44">]</text></g><path d="M815.5 40h10" /><path d="M825.5 40h10" /><g class="terminal ">
+<path d="M835.5 40h0.0" /><path d="M864.0 40h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="835.5" y="29"></rect><text x="849.75" y="44">;</text></g></g><path d="M864.0 40h10" /><path d="M 874.0 40 h 20 m 0 -10 v 20"></path></g></g>
+<text class="rule-name" x="24" y="201.0">ReturnType</text>
+<g transform="translate(24 209.0)">
+<g transform="translate(.5 .5)">
+<g>
+<path d="M20 21v20m0 -10h20" /></g><g>
+<path d="M40 31h0.0" /><path d="M134.0 31h0.0" /><path d="M40.0 31h20" /><g class="non-terminal ">
+<path d="M60.0 31h0.0" /><path d="M114.0 31h0.0" /><rect height="22" width="54" x="60" y="20"></rect><text x="87" y="35">Type</text></g><path d="M114.0 31h20" /><path d="M40.0 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10" /><g class="terminal ">
+<path d="M60.0 61h0.0" /><path d="M114.0 61h0.0" /><rect height="22" rx="10" ry="10" width="54" x="60" y="50"></rect><text x="87" y="65">void</text></g><path d="M114.0 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10" /></g><path d="M 134.0 31 h 20 m 0 -10 v 20"></path></g></g>
+<text class="rule-name" x="24" y="327.0">Param</text>
+<g transform="translate(24 335.0)">
+<g transform="translate(.5 .5)">
+<g>
+<path d="M20 21v20m0 -10h20" /></g><path d="M40 31h10" /><g>
+<path d="M50 31h0.0" /><path d="M277.5 31h0.0" /><g class="non-terminal ">
+<path d="M50.0 31h0.0" /><path d="M155.0 31h0.0" /><rect height="22" width="105" x="50" y="20"></rect><text x="102.5" y="35">IDENTIFIER</text></g><path d="M155.0 31h10" /><path d="M165.0 31h10" /><g class="terminal ">
+<path d="M175.0 31h0.0" /><path d="M203.5 31h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="175" y="20"></rect><text x="189.25" y="35">:</text></g><path d="M203.5 31h10" /><path d="M213.5 31h10" /><g class="non-terminal ">
+<path d="M223.5 31h0.0" /><path d="M277.5 31h0.0" /><rect height="22" width="54" x="223.5" y="20"></rect><text x="250.5" y="35">Type</text></g></g><path d="M277.5 31h10" /><path d="M 287.5 31 h 20 m 0 -10 v 20"></path></g></g>
+</svg>
