@@ -226,6 +226,9 @@ def render(body):
     width = float(re.search(r'width="([\d.]+)"', header).group(1))
     height = float(re.search(r'height="([\d.]+)"', header).group(1))
     inner = svg[len(header):svg.rindex('</svg>')]
+    # The stylesheet already says so, but a path with no fill attribute of its
+    # own renders as a filled blob wherever the stylesheet does not reach it.
+    inner = inner.replace('<path ', '<path fill="none" ')
     return width, height, inner
 
 
