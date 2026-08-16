@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="390" viewBox="0 0 1120 390" role="img" aria-labelledby="title description">
+  <title id="title">Little Duck virtual machine memory model</title>
+  <desc id="description">Global variables and constants are shared for an entire run. The main program and every function call have separate activation records for local variables and temporaries. Function calls push a frame and returns pop one.</desc>
+  <style>
+    .background { fill: #ffffff; } .heading, .text { fill: #1f2328; } .muted { fill: #57606a; }
+    .shared { fill: #ddf4ff; stroke: #0969da; } .frame { fill: #f6f8fa; stroke: #8c959f; } .active { fill: #dafbe1; stroke: #1a7f37; }
+    .divider { stroke: #8c959f; } .arrow { stroke: #8250df; fill: none; }
+    @media (prefers-color-scheme: dark) {
+      .background { fill: #0d1117; } .heading, .text { fill: #e6edf3; } .muted { fill: #8b949e; }
+      .shared { fill: #0c2d6b; stroke: #58a6ff; } .frame { fill: #161b22; stroke: #8b949e; } .active { fill: #12351d; stroke: #3fb950; }
+      .divider { stroke: #8b949e; } .arrow { stroke: #d2a8ff; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .heading { font-size: 22px; font-weight: 700; } .label { font-size: 16px; font-weight: 700; } .small { font-size: 13px; }
+    .box { stroke-width: 2; } .arrow { stroke-width: 2.5; marker-end: url(#arrowhead); }
+  </style>
+  <defs><marker id="arrowhead" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#8250df"/></marker></defs>
+  <rect class="background" width="1120" height="390" rx="12"/>
+  <text class="heading" x="48" y="48">Memory is shared where it should be, isolated where it must be</text>
+  <text class="muted small" x="48" y="74">Addresses determine the memory region, so the virtual machine does not need source-level names while it runs.</text>
+  <rect class="shared box" x="48" y="118" width="315" height="190" rx="10"/>
+  <text class="text label" x="72" y="151">Shared for the full program run</text>
+  <line class="divider" x1="72" y1="169" x2="339" y2="169"/>
+  <text class="text label" x="72" y="202">Globals</text><text class="muted small" x="72" y="225">variables and function return slots</text>
+  <text class="text label" x="72" y="263">Constants</text><text class="muted small" x="72" y="286">read-only values loaded from the IR</text>
+  <text class="muted small" x="48" y="342">All calls can read and write globals; constants are shared and immutable.</text>
+  <text class="text label" x="590" y="116" text-anchor="middle">Activation-record stack</text>
+  <rect class="frame box" x="455" y="134" width="270" height="65" rx="8"/>
+  <text class="text label" x="480" y="161">main frame</text><text class="muted small" x="480" y="182">main temporaries</text>
+  <rect class="frame box" x="455" y="207" width="270" height="65" rx="8"/>
+  <text class="text label" x="480" y="234">fib(4) frame</text><text class="muted small" x="480" y="255">parameters · locals · temporaries</text>
+  <rect class="active box" x="455" y="280" width="270" height="65" rx="8"/>
+  <text class="text label" x="480" y="307">fib(3) frame</text><text class="muted small" x="480" y="328">current call; its own cells</text>
+  <path class="arrow" d="M790 167 H900 V304 H735"/>
+  <text class="text label" x="947" y="215">Call</text><text class="muted small" x="925" y="237">push a frame</text>
+  <path class="arrow" d="M900 322 V362 H590 V345"/>
+  <text class="text label" x="925" y="345">Return</text><text class="muted small" x="925" y="367">pop a frame</text>
+</svg>

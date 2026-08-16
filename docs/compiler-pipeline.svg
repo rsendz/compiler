@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="350" viewBox="0 0 1120 350" role="img" aria-labelledby="title description">
+  <title id="title">Little Duck compilation and execution pipeline</title>
+  <desc id="description">Little Duck source passes through the lexer and LR parser. Semantic actions use the symbol table, semantic cube and memory allocator to emit quadruples. The optimizer writes address-only IR files that the virtual machine executes.</desc>
+  <style>
+    .background { fill: #ffffff; } .heading { fill: #1f2328; } .text { fill: #1f2328; }
+    .muted { fill: #57606a; } .box { fill: #f6f8fa; stroke: #8c959f; } .accent { fill: #ddf4ff; stroke: #0969da; }
+    .arrow { stroke: #57606a; } .dashed { stroke: #8250df; } .detail { fill: #fbefff; stroke: #8250df; }
+    @media (prefers-color-scheme: dark) {
+      .background { fill: #0d1117; } .heading, .text { fill: #e6edf3; } .muted { fill: #8b949e; }
+      .box { fill: #161b22; stroke: #8b949e; } .accent { fill: #0c2d6b; stroke: #58a6ff; }
+      .arrow { stroke: #8b949e; } .dashed { stroke: #d2a8ff; } .detail { fill: #2d1b4e; stroke: #d2a8ff; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .heading { font-size: 22px; font-weight: 700; } .label { font-size: 16px; font-weight: 700; }
+    .small { font-size: 13px; } .arrow, .dashed { stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); }
+    .dashed { stroke-dasharray: 7 5; marker-end: none; }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <path d="M0,0 L9,3.5 L0,7 Z" class="arrow" fill="#57606a"/>
+    </marker>
+  </defs>
+  <rect class="background" width="1120" height="350" rx="12"/>
+  <text class="heading" x="48" y="48">From Little Duck source to execution</text>
+  <text class="muted small" x="48" y="74">The compiler’s single pass emits quadruples while parsing; optimization runs once the complete program exists.</text>
+  <g>
+    <rect class="box" x="48" y="128" width="135" height="76" rx="8"/><text class="text label" x="115" y="160" text-anchor="middle">Source</text><text class="muted small" x="115" y="183" text-anchor="middle">.txt program</text>
+    <rect class="accent" x="244" y="128" width="180" height="76" rx="8"/><text class="text label" x="334" y="157" text-anchor="middle">Lexer + LR parser</text><text class="text small" x="334" y="181" text-anchor="middle">PLY reductions</text>
+    <rect class="accent" x="485" y="128" width="180" height="76" rx="8"/><text class="text label" x="575" y="157" text-anchor="middle">Semantic actions</text><text class="text small" x="575" y="181" text-anchor="middle">emit quadruples</text>
+    <rect class="box" x="726" y="128" width="145" height="76" rx="8"/><text class="text label" x="798" y="157" text-anchor="middle">Optimizer</text><text class="muted small" x="798" y="181" text-anchor="middle">six passes</text>
+    <rect class="box" x="932" y="128" width="140" height="76" rx="8"/><text class="text label" x="1002" y="157" text-anchor="middle">Virtual machine</text><text class="muted small" x="1002" y="181" text-anchor="middle">runs address IR</text>
+  </g>
+  <path class="arrow" d="M183 166 H244 M424 166 H485 M665 166 H726 M871 166 H932"/>
+  <g>
+    <rect class="detail" x="398" y="260" width="350" height="56" rx="8"/>
+    <text class="text label" x="573" y="284" text-anchor="middle">Shared compiler context</text>
+    <text class="text small" x="573" y="304" text-anchor="middle">symbol table · semantic cube · virtual-memory allocator · errors</text>
+    <path class="dashed" d="M575 204 V260"/>
+  </g>
+  <text class="muted small" x="48" y="238">Output: readable IR for inspection + address-only IR for execution</text>
+</svg>
