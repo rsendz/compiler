@@ -1,7 +1,7 @@
 """Render the Little Duck grammar as railroad diagrams.
 
-    pip install railroad-diagrams
-    python docs/grammar_diagram.py
+    python3 -m pip install -r requirements-docs.txt
+    python3 docs/grammar_diagram.py
 
 Writes one SVG per section of the grammar, in two palettes -- so the README can
 hand GitHub whichever one matches the reader's theme, and no single picture is
