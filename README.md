@@ -10,11 +10,122 @@ virtual memory addresses and emits quadruples. The result is an intermediate
 representation written entirely in addresses, which a separate virtual machine
 loads and executes.
 
-## Grammar diagram
+## Highlights
 
-Railroad diagrams of the whole grammar, one section at a time.
+- A one-pass LR compiler with syntax recovery and accumulated diagnostics.
+- Static typing, nested block scopes, arrays, functions and recursion.
+- Address-only quadruple IR, a separate virtual machine and source-aware
+  runtime errors.
+- Conservative optimization: constant folding and propagation, control-flow
+  simplification, dead-result removal and unreachable-code removal.
+- 47 end-to-end programs covering successful execution, compilation failures,
+  optimizer behavior and runtime failures.
 
-<details open>
+## Quick start
+
+Little Duck requires Python 3 and the dependencies in `requirements.txt`.
+The commands below use `python3`; substitute the interpreter name your system
+uses if needed.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+python3 run_tests.py
+```
+
+Compile and run a program:
+
+```bash
+python3 main.py tests/programs/arithmetic.txt
+```
+
+With no arguments the entry point reads `input.txt`:
+
+```bash
+python3 main.py
+```
+
+Two files are written next to the program: `ir-names.txt`, a readable listing
+meant for inspection, and `ir-addresses.txt`, the address-only listing the
+machine executes. Use `--ir-base NAME` to change the base name.
+
+The quadruples are optimized before they are written. `--no-optimize` emits
+them exactly as the parser produced them, and `--optimize-report` says what the
+pass changed:
+
+```bash
+python3 main.py tests/optimized/constant_folding.txt --optimize-report
+```
+
+The virtual machine is a program of its own and can run a listing directly,
+without going through the compiler again:
+
+```bash
+python3 -m littleduck.vm ir-addresses.txt
+```
+
+The exit status is `0` when the program ran to completion, and `1` when
+compilation failed or the program hit a runtime error.
+
+## Project layout
+
+```
+main.py                    command-line entry point: compile, then run
+littleduck/
+    lexer.py               tokens and the PLY lexer
+    grammar.py             the LR grammar with its semantic actions
+    semantics.py           the semantic cube
+    symbols.py             function directory and variable tables
+    memory.py              virtual memory layout and address allocation
+    quadruples.py          the intermediate representation
+    flow.py                reachability over the generated quadruples
+    context.py             the state shared by every phase
+    optimizer.py           constant folding and dead-code removal
+    ir.py                  address resolution and the output files
+    compiler.py            the compilation driver
+    errors.py              error collection and reporting
+    vm/
+        loader.py          reads an address listing back into memory
+        memory.py          simulated memory and activation records
+        machine.py         the interpreter
+        errors.py          runtime errors
+        __main__.py        `python3 -m littleduck.vm`
+docs/
+    grammar_diagram.py     regenerates the railroad diagrams above
+    grammar-*.svg          the diagrams themselves, light and dark
+    compiler-pipeline.svg  compilation and execution stages
+    runtime-memory.svg     shared memory and activation records
+run_tests.py               runs every program under tests/ and checks its output
+requirements.txt           runtime dependency pins
+requirements-docs.txt      runtime and diagram-generation dependency pins
+.github/workflows/test.yml runs the test suite on supported Python versions
+LICENSE                    MIT License
+tests/
+    programs/              programs that compile and run
+    optimized/             programs run with the optimizer's report on
+    compile-errors/        programs rejected at compile time
+    runtime-errors/        programs that compile but fail while running
+```
+
+## Architecture
+
+The compiler translates source to an executable, address-only intermediate
+representation; the virtual machine can also load that representation directly.
+
+![Compilation pipeline](docs/compiler-pipeline.svg)
+
+The runtime separates shared program memory from one local-and-temporary frame
+per active call, which is what makes recursion work without a symbol table.
+
+![Runtime memory and calls](docs/runtime-memory.svg)
+
+## Grammar diagrams
+
+Railroad diagrams provide a complete visual reference for the grammar. They
+are generated from the productions in `littleduck/grammar.py`.
+
+<details>
 <summary><b>Program and declarations</b></summary>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/grammar-program-dark.svg">
@@ -46,86 +157,11 @@ Railroad diagrams of the whole grammar, one section at a time.
 </picture>
 </details>
 
-They are generated from the productions in `littleduck/grammar.py`, so
-regenerate them after changing the grammar:
+Regenerate them after changing the grammar:
 
 ```bash
-pip install railroad-diagrams
-python docs/grammar_diagram.py
-```
-
-## Quick start
-
-```bash
-pip install ply
-```
-
-Compile and run a program:
-
-```bash
-python main.py tests/programs/arithmetic.txt
-```
-
-With no arguments the entry point reads `input.txt`:
-
-```bash
-python main.py
-```
-
-Two files are written next to the program: `ir-names.txt`, a readable listing
-meant for inspection, and `ir-addresses.txt`, the address-only listing the
-machine executes. Use `--ir-base NAME` to change the base name.
-
-The quadruples are optimized before they are written. `--no-optimize` emits
-them exactly as the parser produced them, and `--optimize-report` says what the
-pass changed:
-
-```bash
-python main.py tests/optimized/constant_folding.txt --optimize-report
-```
-
-The virtual machine is a program of its own and can run a listing directly,
-without going through the compiler again:
-
-```bash
-python -m littleduck.vm ir-addresses.txt
-```
-
-The exit status is `0` when the program ran to completion, and `1` when
-compilation failed or the program hit a runtime error.
-
-## Project layout
-
-```
-main.py                    command-line entry point: compile, then run
-littleduck/
-    lexer.py               tokens and the PLY lexer
-    grammar.py             the LR grammar with its semantic actions
-    semantics.py           the semantic cube
-    symbols.py             function directory and variable tables
-    memory.py              virtual memory layout and address allocation
-    quadruples.py          the intermediate representation
-    flow.py                reachability over the generated quadruples
-    context.py             the state shared by every phase
-    optimizer.py           constant folding and dead-code removal
-    ir.py                  address resolution and the output files
-    compiler.py            the compilation driver
-    errors.py              error collection and reporting
-    vm/
-        loader.py          reads an address listing back into memory
-        memory.py          simulated memory and activation records
-        machine.py         the interpreter
-        errors.py          runtime errors
-        __main__.py        `python -m littleduck.vm`
-docs/
-    grammar_diagram.py     regenerates the railroad diagrams above
-    grammar-*.svg          the diagrams themselves, light and dark
-run_tests.py               runs every program under tests/ and checks its output
-tests/
-    programs/              programs that compile and run
-    optimized/             programs run with the optimizer's report on
-    compile-errors/        programs rejected at compile time
-    runtime-errors/        programs that compile but fail while running
+python3 -m pip install -r requirements-docs.txt
+python3 docs/grammar_diagram.py
 ```
 
 ## The language
@@ -459,7 +495,7 @@ and temporary memory it needs) and `quads` the instructions themselves, with
 The parser never looks back at what it already emitted, which is what keeps the
 single pass simple and also what leaves work in the listing that the program
 does not need. `littleduck/optimizer.py` runs over the finished quadruples of a
-program that compiled cleanly and repeats five transformations until none of
+program that compiled cleanly and repeats six transformations until none of
 them finds anything left to do:
 
 | Pass                  | What it does                                                         |
@@ -468,7 +504,8 @@ them finds anything left to do:
 | Constant propagation  | a temporary assigned one constant is replaced by it wherever it is read |
 | Branch settling       | a conditional jump on a constant becomes an unconditional one, or nothing |
 | Jump simplification   | a jump to the next instruction goes away; a jump onto a jump is retargeted |
-| Dead-code removal     | an unread result, or an instruction no path reaches, is dropped        |
+| Dead-result removal   | an unread temporary result is dropped when computing it cannot fault    |
+| Unreachable-code removal | an instruction no path reaches is dropped, except structural markers |
 
 They feed each other: folding creates the constants propagation moves, moving
 them leaves the original instructions unread, dropping those makes jumps land
@@ -539,7 +576,7 @@ Runtime error at line 11 (quadruple 6): division by zero
 ## Tests
 
 ```bash
-python run_tests.py
+python3 run_tests.py
 ```
 
 Every `<name>.txt` under `tests/` is compiled, run, and compared against the
@@ -574,8 +611,8 @@ Pass a fragment of a name to run part of the suite, and `--update` to record
 the current output as the expected one after an intentional change:
 
 ```bash
-python run_tests.py recursion
-python run_tests.py --update
+python3 run_tests.py recursion
+python3 run_tests.py --update
 ```
 
 Review what `--update` writes before committing it: it records whatever the
@@ -584,9 +621,9 @@ compiler currently does, which is only correct if the change was intended.
 Individual programs can still be run by hand:
 
 ```bash
-python main.py tests/programs/full_program.txt
-python main.py tests/compile-errors/type_mismatch.txt
-python main.py tests/runtime-errors/division_by_zero.txt
+python3 main.py tests/programs/full_program.txt
+python3 main.py tests/compile-errors/type_mismatch.txt
+python3 main.py tests/runtime-errors/division_by_zero.txt
 ```
 
 ## Current limitations
@@ -628,3 +665,7 @@ python main.py tests/runtime-errors/division_by_zero.txt
 - Recomputing the memory header after optimization, so a scope only reserves
   the temporaries that survived.
 - Richer diagnostics showing the offending source line in context.
+
+## License
+
+Little Duck is released under the [MIT License](LICENSE).
