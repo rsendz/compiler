@@ -18,12 +18,12 @@
   <rect class="background" width="1120" height="390" rx="12"/>
   <text class="heading" x="48" y="48">Memory is shared where it should be, isolated where it must be</text>
   <text class="muted small" x="48" y="74">Addresses determine the memory region, so the virtual machine does not need source-level names while it runs.</text>
-  <rect class="shared box" x="48" y="118" width="315" height="190" rx="10"/>
+  <rect class="shared box" x="48" y="118" width="315" height="225" rx="10"/>
   <text class="text label" x="72" y="151">Shared for the full program run</text>
   <line class="divider" x1="72" y1="169" x2="339" y2="169"/>
   <text class="text label" x="72" y="202">Globals</text><text class="muted small" x="72" y="225">variables and function return slots</text>
   <text class="text label" x="72" y="263">Constants</text><text class="muted small" x="72" y="286">read-only values loaded from the IR</text>
-  <text class="muted small" x="48" y="342">All calls can read and write globals; constants are shared and immutable.</text>
+  <text class="muted small" x="72" y="322">All calls share these regions.</text>
   <text class="text label" x="590" y="116" text-anchor="middle">Activation-record stack</text>
   <rect class="frame box" x="455" y="134" width="270" height="65" rx="8"/>
   <text class="text label" x="480" y="161">main frame</text><text class="muted small" x="480" y="182">main temporaries</text>

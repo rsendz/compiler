@@ -32,10 +32,11 @@
   </g>
   <path class="arrow" d="M183 166 H244 M424 166 H485 M665 166 H726 M871 166 H932"/>
   <g>
-    <rect class="detail" x="398" y="260" width="350" height="56" rx="8"/>
+    <rect class="detail" x="398" y="248" width="350" height="76" rx="8"/>
     <text class="text label" x="573" y="284" text-anchor="middle">Shared compiler context</text>
-    <text class="text small" x="573" y="304" text-anchor="middle">symbol table · semantic cube · virtual-memory allocator · errors</text>
-    <path class="dashed" d="M575 204 V260"/>
+    <text class="text small" x="573" y="304" text-anchor="middle">symbol table · semantic cube</text>
+    <text class="text small" x="573" y="320" text-anchor="middle">virtual-memory allocator · errors</text>
+    <path class="dashed" d="M575 204 V248"/>
   </g>
   <text class="muted small" x="48" y="238">Output: readable IR for inspection + address-only IR for execution</text>
 </svg>
