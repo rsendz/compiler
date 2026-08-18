@@ -218,15 +218,15 @@ end
 ```
 
 Types are `int`, `float`, `string` and `bool`; functions may also be `void`. A
-declaration that gives a size — `values[4] : int` — declares an array of that
+declaration with a size, such as `values[4] : int`, declares an array of that
 many elements, indexed from zero. Function bodies are delimited by `[ ]`,
-blocks by `{ }`, and every statement — including `if` and `do/while` — ends
-with a semicolon. Comments start with `#`. `print` takes one or more arguments
-and adds a line break of its own.
+blocks by `{ }`, and every statement, including `if` and `do/while`, ends with
+a semicolon. Comments start with `#`. `print` takes one or more arguments and
+adds a line break of its own.
 
 `and` and `or` short-circuit: the right operand is only evaluated when the left
 one has not already settled the answer. They take booleans on both sides and
-nothing else — there is no implicit conversion, so `if (n and m)` over two
+nothing else. There is no implicit conversion, so `if (n and m)` over two
 integers is rejected rather than quietly reading zero as false.
 
 A `var` may also appear as a statement, in which case it belongs to the block
@@ -290,8 +290,8 @@ syntax errors the parser is assumed to be looping and the run is abandoned.
 
 ### 3. Semantic analysis
 
-**Function directory.** Every scope — the program itself and each function —
-is one `FunctionEntry` holding its return type, its parameters in declaration
+**Function directory.** Every scope, the program itself and each function, is
+one `FunctionEntry` holding its return type, its parameters in declaration
 order, its variable table, the quadruple it starts at, and how much memory it
 needs.
 
@@ -303,7 +303,7 @@ what lets every function reuse the same range of local addresses.
 Every `{ }` is a scope: a `var` written as a statement belongs to the block it
 appears in and is gone at the closing brace. A declaration may reuse a name
 from an enclosing scope, in which case it hides it for as long as it is open,
-and two blocks side by side may each declare their own — with different types
+and two blocks side by side may each declare their own, with different types
 if they like, since each declaration is a variable of its own with its own
 address.
 
@@ -348,7 +348,7 @@ passing through a `return`. `littleduck/flow.py` does that walk.
 
 The check stays quiet unless it has something new to say. A function with no
 value return at all is already reported by the check above, and one whose
-`return` failed its type check emits no `return` quadruple — so its flow graph
+`return` failed its type check emits no `return` quadruple, so its flow graph
 is missing a path the source really has, and accusing it of a partial return
 would be wrong. Both cases are skipped.
 
@@ -360,12 +360,12 @@ both its scope and its type:
 | Region   | int   | float | string | bool  | void  |
 | -------- | ----- | ----- | ------ | ----- | ----- |
 | Global   | 1000  | 2000  | 3000   | 4000  | 5000  |
-| Local    | 7000  | 8000  | 9000   | 10000 | —     |
-| Temporal | 12000 | 13000 | 14000  | 15000 | —     |
-| Constant | 17000 | 18000 | 19000  | 20000 | —     |
+| Local    | 7000  | 8000  | 9000   | 10000 | -     |
+| Temporal | 12000 | 13000 | 14000  | 15000 | -     |
+| Constant | 17000 | 18000 | 19000  | 20000 | -     |
 
 Each region holds 1000 addresses. Because the region follows from the address
-alone, the machine can route a read or a write without a symbol table — which
+alone, the machine can route a read or a write without a symbol table, which
 is why the executable listing carries no names at all.
 
 An array asks for as many consecutive addresses as it has elements, and its own
@@ -402,7 +402,7 @@ only the quadruple.
 
 `and` and `or` have no operator of their own. The left operand is copied into
 the temporary that will hold the result and a jump over the right operand is
-emitted — `gotof` for `and`, which skips when the answer is already `false`,
+emitted: `gotof` for `and`, which skips when the answer is already `false`,
 and `gotot` for `or`, which skips when it is already `true`. That jump is what
 makes them short-circuit.
 
@@ -510,8 +510,8 @@ them finds anything left to do:
 They feed each other: folding creates the constants propagation moves, moving
 them leaves the original instructions unread, dropping those makes jumps land
 elsewhere, and settling a branch makes a whole block unreachable. The
-quadruples are then compacted and everything that names one — every jump, and
-the quadruple each function starts at — is renumbered.
+quadruples are then compacted and everything that names one, every jump and the
+quadruple each function starts at, is renumbered.
 
 The pass is conservative about faults. Reading a variable that was never
 assigned is a runtime error in this language, and so is dividing by zero, so an
@@ -584,7 +584,7 @@ Every `<name>.txt` under `tests/` is compiled, run, and compared against the
 how it must finish and how it is compiled, so a program that was supposed to
 fail but succeeded is a failure even if its output looks right.
 
-- `tests/programs/` — programs that compile and run: arithmetic, control flow,
+- `tests/programs/`: programs that compile and run: arithmetic, control flow,
   nested loops, `break`, early `return`, recursion (including a two-call
   `fib`), calls nested inside other calls, string comparison, printing every
   type, arrays of every type (sorted in place, and one local to a function),
@@ -592,17 +592,17 @@ fail but succeeded is a failure even if its output looks right.
   and blocks declaring variables of their own, functions that return on every
   path (guarding the partial-return check against false positives), and one
   program exercising every construct at once.
-- `tests/optimized/` — programs compiled with `--optimize-report`, so what the
+- `tests/optimized/`: programs compiled with `--optimize-report`, so what the
   optimization pass did to them is recorded next to their output and any
   change to the pass shows up as a diff.
-- `tests/compile-errors/` — one file per class of rejection: bad identifiers,
+- `tests/compile-errors/`: one file per class of rejection: bad identifiers,
   syntax errors and their recovery, type mismatches, undeclared names, name
   collisions, calls that do not match their signature, misplaced `break` and
   `return`, a typed function with no value return, one that returns on only
   some paths, `print` with no arguments, names reached for outside their scope,
   arrays used whole or indexed with the wrong type, and booleans mixed with
   anything else.
-- `tests/runtime-errors/` — programs that compile cleanly and then fail:
+- `tests/runtime-errors/`: programs that compile cleanly and then fail:
   division by zero (int and float), a division whose divisor is a folded
   constant zero, an array index past the end, reading an uninitialized global
   or local, and runaway recursion.
@@ -637,8 +637,8 @@ python3 main.py tests/runtime-errors/division_by_zero.txt
 - The optimization pass never reasons about what a variable holds, only about
   what a temporary holds, so `a = 2; b = a + 1;` keeps its addition. It also
   leaves the memory counts in the header alone, so a scope may reserve
-  temporaries that the pass has since removed — space that is reserved and
-  never touched.
+  temporaries that the pass has since removed, space that is reserved and never
+  touched.
 - The optimization pass sees each quadruple on its own and does not recognize
   that two of them compute the same thing, so a repeated subexpression is
   still computed twice.
