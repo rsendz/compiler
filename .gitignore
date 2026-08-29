@@ -5,3 +5,4 @@ venv/
 input.txt
 ir-names.txt
 ir-addresses.txt
+cpp-vm/build/
