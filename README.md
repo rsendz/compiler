@@ -65,6 +65,24 @@ without going through the compiler again:
 python3 -m littleduck.vm ir-addresses.txt
 ```
 
+### C++ virtual machine
+
+The C++17 VM reads the same address-only IR as the Python VM. It is a separate
+implementation, so the Python compiler remains the reference producer while
+the two runtimes can be checked against the same programs.
+
+```bash
+cmake -S cpp-vm -B cpp-vm/build
+cmake --build cpp-vm/build
+cpp-vm/build/littleduck-vm ir-addresses.txt
+```
+
+Verify the C++ VM against every suite that reaches execution:
+
+```bash
+python3 cpp-vm/test_against_suite.py cpp-vm/build/littleduck-vm
+```
+
 The exit status is `0` when the program ran to completion, and `1` when
 compilation failed or the program hit a runtime error.
 
@@ -96,6 +114,10 @@ docs/
     grammar-*.svg          the diagrams themselves, light and dark
     compiler-pipeline.svg  compilation and execution stages
     runtime-memory.svg     shared memory and activation records
+cpp-vm/
+    CMakeLists.txt          builds the standalone C++17 virtual machine
+    src/main.cpp            IR loader, memory model and interpreter
+    test_against_suite.py   compares the C++ VM with executable golden tests
 run_tests.py               runs every program under tests/ and checks its output
 requirements.txt           runtime dependency pins
 requirements-docs.txt      runtime and diagram-generation dependency pins
