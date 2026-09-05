@@ -20,6 +20,10 @@ loads and executes.
   simplification, dead-result removal and unreachable-code removal.
 - 47 end-to-end programs covering successful execution, compilation failures,
   optimizer behavior and runtime failures.
+- 105 grammar productions, ~26,000 source lines compiled per second, and a
+  pass that takes 35% of the quadruples off a constant-heavy program without
+  changing what any of the 29 executable programs prints: see
+  [METRICS.md](METRICS.md).
 
 ## Quick start
 
@@ -119,6 +123,7 @@ cpp-vm/
     src/main.cpp            IR loader, memory model and interpreter
     test_against_suite.py   compares the C++ VM with executable golden tests
 run_tests.py               runs every program under tests/ and checks its output
+metrics.py                 measures grammar size, throughput and optimizer impact
 requirements.txt           runtime dependency pins
 requirements-docs.txt      runtime and diagram-generation dependency pins
 .github/workflows/test.yml runs the test suite on supported Python versions
@@ -628,6 +633,15 @@ fail but succeeded is a failure even if its output looks right.
   division by zero (int and float), a division whose divisor is a folded
   constant zero, an array index past the end, reading an uninitialized global
   or local, and runaway recursion.
+
+[METRICS.md](METRICS.md) reports what this suite says about the compiler:
+grammar size, compile throughput, how much the optimization pass removes, and
+which of its safety guards are actually holding something up. Regenerate the
+numbers with:
+
+```bash
+python3 metrics.py
+```
 
 Pass a fragment of a name to run part of the suite, and `--update` to record
 the current output as the expected one after an intentional change:
